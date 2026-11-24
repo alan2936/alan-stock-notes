@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -130,9 +131,13 @@
           <button id="theme-toggle-btn" type="button" class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換深淺色主題">
             <i data-lucide="moon" class="w-4 h-4"></i>
           </button>
+          <button id="cloud-auth-btn" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <i data-lucide="cloud" class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400"></i>
+            <span id="cloud-auth-label">雲端同步</span>
+          </button>
           <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
             <div class="w-8 h-8 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">A</div>
-            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Alan</span>
+            <span id="header-user-name" class="text-sm font-medium text-slate-700 dark:text-slate-200">Alan</span>
           </div>
         </div>
       </header>
@@ -654,7 +659,18 @@
       </div>
       <div class="p-5 space-y-4 text-sm">
         <div class="rounded-xl bg-slate-50 dark:bg-slate-800/70 p-3.5 text-xs text-slate-500 dark:text-slate-400">
-          所有持股、現價、警示與交易紀錄皆儲存在您目前瀏覽器的本機空間（localStorage），重新整理不會遺失。
+          未登入時資料儲存於本機（localStorage）；填入 Supabase 連線資訊並登入後，將自動同步至雲端資料庫。
+        </div>
+        <div class="space-y-2.5 pt-1">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Supabase Project URL</label>
+            <input id="setting-sb-url" type="url" placeholder="https://xxxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Supabase anon (public) Key</label>
+            <input id="setting-sb-key" type="password" placeholder="eyJhbGciOi..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+          </div>
+          <button id="save-sb-config-btn" type="button" class="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold">儲存 Supabase 設定</button>
         </div>
         <div class="flex items-center justify-between">
           <span>預設隱藏金額（隱私模式）</span>
@@ -675,6 +691,17 @@
         <button type="button" data-close-modal="action-modal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <div id="action-modal-body" class="p-5 text-sm space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Supabase 雲端同步登入 -->
+  <div id="cloud-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-xl">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <h3 class="text-base font-bold">Supabase 雲端同步</h3>
+        <button type="button" data-close-modal="cloud-modal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div id="cloud-modal-body" class="p-5 text-sm space-y-4"></div>
     </div>
   </div>
 
@@ -728,6 +755,11 @@
     ];
 
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
+    // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
+    const DEFAULT_SUPABASE_URL = '';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
+    let supabaseClient = null;
+    let currentUser = null;
 
     let state = {
       transactions: JSON.parse(JSON.stringify(DEMO_TRANSACTIONS)),
@@ -742,7 +774,9 @@
       compareSymbol: '0050',
       perfSort: { key: 'd1', asc: false },
       selectedTxType: '買入',
-      filterTxType: 'ALL'
+      filterTxType: 'ALL',
+      supabaseUrl: DEFAULT_SUPABASE_URL,
+      supabaseKey: DEFAULT_SUPABASE_ANON_KEY
     };
 
     let allocationChart = null;
@@ -769,10 +803,203 @@
           calcFeeTax: state.calcFeeTax,
           feeDiscount: state.feeDiscount,
           privacyMode: state.privacyMode,
-          darkMode: state.darkMode
+          darkMode: state.darkMode,
+          supabaseUrl: state.supabaseUrl,
+          supabaseKey: state.supabaseKey
         }));
       } catch (e) {
         // Ignore storage error in restricted environments
+      }
+    }
+
+
+    function getSbCreds() {
+      return {
+        url: (state.supabaseUrl || DEFAULT_SUPABASE_URL || '').trim(),
+        key: (state.supabaseKey || DEFAULT_SUPABASE_ANON_KEY || '').trim()
+      };
+    }
+
+    async function initSupabase() {
+      const { url, key } = getSbCreds();
+      if (!url || !key || !window.supabase) {
+        supabaseClient = null;
+        currentUser = null;
+        updateCloudUI();
+        return;
+      }
+      supabaseClient = window.supabase.createClient(url, key);
+      const { data } = await supabaseClient.auth.getSession();
+      currentUser = data?.session?.user || null;
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        currentUser = session?.user || null;
+        updateCloudUI();
+        if (currentUser) await pullTransactionsFromCloud();
+      });
+      updateCloudUI();
+      if (currentUser) await pullTransactionsFromCloud();
+    }
+
+    function updateCloudUI() {
+      const lbl = document.getElementById('cloud-auth-label');
+      const hdrName = document.getElementById('header-user-name');
+      if (!lbl) return;
+      if (currentUser) {
+        lbl.textContent = '已同步';
+        if (hdrName) hdrName.textContent = currentUser.email ? currentUser.email.split('@')[0] : 'Alan';
+      } else {
+        lbl.textContent = getSbCreds().url ? '雲端登入' : '雲端同步';
+        if (hdrName) hdrName.textContent = 'Alan';
+      }
+    }
+
+    async function pullTransactionsFromCloud() {
+      if (!supabaseClient || !currentUser) return;
+      const { data, error } = await supabaseClient
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: true });
+      if (error) {
+        showToast('讀取雲端紀錄失敗：' + error.message);
+        return;
+      }
+      if (Array.isArray(data) && data.length > 0) {
+        state.transactions = data.map(r => ({
+          id: r.id,
+          symbol: r.symbol,
+          name: r.name || TW_STOCK_NAMES[r.symbol] || r.symbol,
+          type: r.type,
+          date: r.date,
+          shares: Number(r.shares),
+          price: Number(r.price),
+          note: r.note || ''
+        }));
+        saveState();
+        renderAll();
+        showToast('已從雲端同步 ' + data.length + ' 筆交易紀錄');
+      }
+    }
+
+    async function pushTransactionToCloud(tx) {
+      if (!supabaseClient || !currentUser) return;
+      const { error } = await supabaseClient.from('transactions').upsert({
+        id: tx.id,
+        user_id: currentUser.id,
+        symbol: tx.symbol,
+        name: tx.name || '',
+        type: tx.type,
+        date: tx.date,
+        shares: tx.shares,
+        price: tx.price,
+        note: tx.note || ''
+      });
+      if (error) showToast('雲端寫入失敗：' + error.message);
+    }
+
+    async function deleteTransactionFromCloud(txId) {
+      if (!supabaseClient || !currentUser) return;
+      const { error } = await supabaseClient.from('transactions').delete().eq('id', txId);
+      if (error) showToast('雲端刪除失敗：' + error.message);
+    }
+
+    async function uploadAllLocalToCloud() {
+      if (!supabaseClient || !currentUser) return;
+      const rows = state.transactions.map(tx => ({
+        id: tx.id,
+        user_id: currentUser.id,
+        symbol: tx.symbol,
+        name: tx.name || '',
+        type: tx.type,
+        date: tx.date,
+        shares: tx.shares,
+        price: tx.price,
+        note: tx.note || ''
+      }));
+      const { error } = await supabaseClient.from('transactions').upsert(rows);
+      if (error) {
+        showToast('批次上傳失敗：' + error.message);
+      } else {
+        showToast('已將本機 ' + rows.length + ' 筆紀錄同步至雲端');
+      }
+    }
+
+    function renderCloudModal() {
+      const body = document.getElementById('cloud-modal-body');
+      const { url, key } = getSbCreds();
+      if (!url || !key) {
+        body.innerHTML = `
+          <p class="text-xs text-slate-500">請先填入您的 Supabase Project URL 與 anon Key，即可啟用跨裝置登入與同步。</p>
+          <div><label class="block text-xs text-slate-500 mb-1">Project URL</label><input id="cm-sb-url" type="url" placeholder="https://xxxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" /></div>
+          <div><label class="block text-xs text-slate-500 mb-1">anon (public) Key</label><input id="cm-sb-key" type="password" placeholder="eyJhbGciOi..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" /></div>
+          <button id="cm-save-creds" type="button" class="w-full py-2 rounded-xl bg-teal-600 text-white font-semibold">儲存並前往登入</button>
+        `;
+        document.getElementById('cm-save-creds').onclick = async () => {
+          state.supabaseUrl = document.getElementById('cm-sb-url').value.trim();
+          state.supabaseKey = document.getElementById('cm-sb-key').value.trim();
+          saveState();
+          await initSupabase();
+          renderCloudModal();
+        };
+        return;
+      }
+
+      if (currentUser) {
+        body.innerHTML = `
+          <div class="rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 p-3.5 text-xs space-y-1">
+            <div class="font-semibold text-teal-800 dark:text-teal-200">已登入雲端帳號</div>
+            <div class="text-teal-700 dark:text-teal-300">${currentUser.email || currentUser.id}</div>
+          </div>
+          <div class="space-y-2">
+            <button id="cm-pull-btn" type="button" class="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold">從雲端重新載入紀錄</button>
+            <button id="cm-push-all-btn" type="button" class="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium">將目前本機紀錄上傳覆蓋至雲端</button>
+            <button id="cm-logout-btn" type="button" class="w-full py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-medium">登出雲端帳號</button>
+          </div>
+        `;
+        document.getElementById('cm-pull-btn').onclick = () => pullTransactionsFromCloud();
+        document.getElementById('cm-push-all-btn').onclick = () => uploadAllLocalToCloud();
+        document.getElementById('cm-logout-btn').onclick = async () => {
+          await supabaseClient.auth.signOut();
+          currentUser = null;
+          updateCloudUI();
+          closeModal('cloud-modal');
+          showToast('已登出雲端帳號');
+        };
+      } else {
+        body.innerHTML = `
+          <button id="cm-google-btn" type="button" class="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold flex items-center justify-center gap-2">
+            <span>使用 Google 帳號登入</span>
+          </button>
+          <div class="relative flex py-1 items-center"><div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div><span class="mx-2 text-xs text-slate-400">或使用 Email 登入／註冊</span><div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div></div>
+          <div class="space-y-2.5">
+            <input id="cm-email" type="email" placeholder="your@email.com" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+            <input id="cm-password" type="password" placeholder="密碼（至少 6 碼）" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+            <div class="grid grid-cols-2 gap-2">
+              <button id="cm-signin-btn" type="button" class="py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold">登入</button>
+              <button id="cm-signup-btn" type="button" class="py-2 rounded-xl border border-teal-600 text-teal-600 dark:text-teal-400 font-semibold">註冊新帳號</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('cm-google-btn').onclick = async () => {
+          const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.origin }
+          });
+          if (error) showToast('Google 登入失敗：' + error.message);
+        };
+        document.getElementById('cm-signin-btn').onclick = async () => {
+          const email = document.getElementById('cm-email').value.trim();
+          const password = document.getElementById('cm-password').value;
+          const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) showToast('登入失敗：' + error.message);
+          else { closeModal('cloud-modal'); showToast('登入成功！'); }
+        };
+        document.getElementById('cm-signup-btn').onclick = async () => {
+          const email = document.getElementById('cm-email').value.trim();
+          const password = document.getElementById('cm-password').value;
+          const { error } = await supabaseClient.auth.signUp({ email, password });
+          if (error) showToast('註冊失敗：' + error.message);
+          else showToast('註冊成功！若需信箱驗證請至信箱點擊連結');
+        };
       }
     }
 
@@ -1347,6 +1574,21 @@
       if (state.darkMode) document.documentElement.classList.add('dark');
       document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
       document.getElementById('setting-privacy-default').checked = state.privacyMode;
+      document.getElementById('setting-sb-url').value = getSbCreds().url;
+      document.getElementById('setting-sb-key').value = getSbCreds().key;
+      document.getElementById('cloud-auth-btn').addEventListener('click', () => {
+        renderCloudModal();
+        openModal('cloud-modal');
+      });
+      document.getElementById('save-sb-config-btn').addEventListener('click', async () => {
+        state.supabaseUrl = document.getElementById('setting-sb-url').value.trim();
+        state.supabaseKey = document.getElementById('setting-sb-key').value.trim();
+        saveState();
+        await initSupabase();
+        closeModal('settings-modal');
+        showToast('已儲存 Supabase 設定');
+      });
+      initSupabase();
 
       // Tab Switching
       const tabTitles = { assets: '資產總覽', holdings: '持倉明細', records: '交易與配息紀錄', news: '台股新聞搜尋' };
@@ -1671,7 +1913,7 @@
         const price = Number(document.getElementById('tx-price').value);
         const note = document.getElementById('tx-note').value.trim();
 
-        state.transactions.push({
+        const newTx = {
           id: 't_' + Date.now(),
           symbol,
           name,
@@ -1680,7 +1922,9 @@
           shares,
           price,
           note
-        });
+        };
+        state.transactions.push(newTx);
+        pushTransactionToCloud(newTx);
         if (!state.prices[symbol] && price > 0) state.prices[symbol] = price;
         saveState();
         e.target.reset();
@@ -1692,7 +1936,9 @@
       document.getElementById('records-tbody').addEventListener('click', e => {
         const btn = e.target.closest('.del-tx-btn');
         if (btn) {
-          state.transactions = state.transactions.filter(t => t.id !== btn.dataset.delId);
+          const delId = btn.dataset.delId;
+          state.transactions = state.transactions.filter(t => t.id !== delId);
+          deleteTransactionFromCloud(delId);
           saveState();
           renderAll();
           showToast('已刪除交易紀錄');
@@ -1734,7 +1980,7 @@
             if (cols.length >= 6) {
               const [symbol, name, type, date, shares, price, note] = cols.map(c => c.trim());
               if (symbol && ['買入', '賣出', '股利', '配股'].includes(type)) {
-                state.transactions.push({
+                const csvTx = {
                   id: `csv_${Date.now()}_${idx}`,
                   symbol,
                   name: name || TW_STOCK_NAMES[symbol] || symbol,
@@ -1743,7 +1989,9 @@
                   shares: Number(shares) || 0,
                   price: Number(price) || 0,
                   note: note || ''
-                });
+                };
+                state.transactions.push(csvTx);
+                pushTransactionToCloud(csvTx);
                 if (!state.prices[symbol] && Number(price) > 0) state.prices[symbol] = Number(price);
                 count++;
               }
