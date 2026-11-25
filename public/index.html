@@ -622,15 +622,46 @@
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-3">
-              <h2 class="text-base font-bold text-slate-900 dark:text-white">匯入交易紀錄（CSV）</h2>
-              <p class="text-xs text-slate-400">支援匯入標準 CSV 欄位：代碼,名稱,類型(買入/賣出/股利/配股),日期(YYYY-MM-DD),股數,價格,備註</p>
-              <div class="flex flex-wrap items-center gap-2">
-                <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium cursor-pointer transition-colors">
-                  <i data-lucide="upload" class="w-4 h-4 text-teal-600"></i>
-                  <span>選擇 CSV 檔案匯入</span>
-                  <input id="csv-import-input" type="file" accept=".csv" class="hidden" />
-                </label>
-                <button id="download-sample-csv-btn" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">下載 CSV 範本</button>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">匯入資料</h2>
+                <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
+                  <button type="button" data-import-tab="tx" class="import-tab-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm">逐筆交易 CSV</button>
+                  <button type="button" data-import-tab="holdings" class="import-tab-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">匯入現有庫存</button>
+                </div>
+              </div>
+
+              <!-- 逐筆交易 CSV -->
+              <div id="import-panel-tx" class="space-y-3">
+                <p class="text-xs text-slate-400">支援匯入標準 CSV 欄位：代碼,名稱,類型(買入/賣出/股利/配股),日期(YYYY-MM-DD),股數,價格,備註</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium cursor-pointer transition-colors">
+                    <i data-lucide="upload" class="w-4 h-4 text-teal-600"></i>
+                    <span>選擇交易 CSV 匯入</span>
+                    <input id="csv-import-input" type="file" accept=".csv" class="hidden" />
+                  </label>
+                  <button id="download-sample-csv-btn" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">下載 CSV 範本</button>
+                </div>
+              </div>
+
+              <!-- 匯入現有庫存（免翻歷史明細） -->
+              <div id="import-panel-holdings" class="hidden space-y-3 text-xs">
+                <p class="text-slate-400">像籌碼K線一樣直接匯入目前庫存成本（自動轉為期初買入紀錄）。支援上傳券商庫存 CSV 或下方直接貼上「代碼 股數 均價」。</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium cursor-pointer">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-teal-600"></i>
+                    <span>上傳券商庫存 CSV</span>
+                    <input id="holdings-csv-input" type="file" accept=".csv" class="hidden" />
+                  </label>
+                  <label class="inline-flex items-center gap-1.5 text-slate-500 cursor-pointer">
+                    <input id="holdings-replace-chk" type="checkbox" checked class="w-3.5 h-3.5 rounded text-teal-600" />
+                    <span>匯入前清除預設示範資料</span>
+                  </label>
+                </div>
+                <textarea id="holdings-paste-box" rows="3" placeholder="每行一檔（空格或逗號分隔）：&#10;2330 1000 1450&#10;00878,5000,22.4" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-xs"></textarea>
+                <div class="flex items-center justify-between gap-2">
+                  <input id="holdings-import-date" type="date" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+                  <button id="import-holdings-paste-btn" type="button" class="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold">一鍵匯入庫存</button>
+                </div>
               </div>
             </div>
           </div>
@@ -2614,6 +2645,117 @@
           saveState();
           renderAll();
           showToast(`成功匯入 ${count} 筆交易紀錄`);
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      // 匯入切換與庫存成本匯入功能
+      document.getElementById('holdings-import-date').value = new Date().toISOString().slice(0, 10);
+      document.querySelectorAll('.import-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = btn.dataset.importTab;
+          document.getElementById('import-panel-tx').classList.toggle('hidden', t !== 'tx');
+          document.getElementById('import-panel-holdings').classList.toggle('hidden', t !== 'holdings');
+          document.querySelectorAll('.import-tab-btn').forEach(b => {
+            b.className = b.dataset.importTab === t
+              ? 'import-tab-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm'
+              : 'import-tab-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium';
+          });
+        });
+      });
+
+      function applyImportedHoldings(items) {
+        if (!items || items.length === 0) {
+          showToast('未偵測到有效的庫存資料（請確認代碼、股數、均價）');
+          return;
+        }
+        const replaceMode = document.getElementById('holdings-replace-chk').checked;
+        if (replaceMode) {
+          state.transactions = [];
+        }
+        const baseDate = document.getElementById('holdings-import-date').value || new Date().toISOString().slice(0, 10);
+        items.forEach((it, idx) => {
+          const tx = {
+            id: `hold_${Date.now()}_${idx}`,
+            symbol: it.symbol,
+            name: it.name || TW_STOCK_NAMES[it.symbol] || it.symbol,
+            type: '買入',
+            date: baseDate,
+            shares: it.shares,
+            price: it.price,
+            note: '庫存成本匯入'
+          };
+          state.transactions.push(tx);
+          if (!state.prices[it.symbol]) state.prices[it.symbol] = it.price;
+          pushTransactionToCloud(tx);
+        });
+        saveState();
+        renderAll();
+        if (window.location.protocol.startsWith('http')) {
+          syncLivePrices(true);
+          fetchChipsData(true);
+        }
+        showToast(`已成功匯入 ${items.length} 檔庫存成本`);
+      }
+
+      document.getElementById('import-holdings-paste-btn').addEventListener('click', () => {
+        const raw = document.getElementById('holdings-paste-box').value;
+        const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const items = [];
+        for (const line of lines) {
+          const parts = line.split(/[\s,，\t]+/).filter(Boolean);
+          if (parts.length >= 3) {
+            const symbol = parts[0].trim();
+            // 支援 "2330 台積電 1000 697" 或 "2330 1000 697"
+            let name = '';
+            let shares = 0;
+            let price = 0;
+            if (parts.length >= 4 && isNaN(Number(parts[1].replace(/,/g, '')))) {
+              name = parts[1].trim();
+              shares = Number(parts[2].replace(/,/g, ''));
+              price = Number(parts[3].replace(/,/g, ''));
+            } else {
+              shares = Number(parts[1].replace(/,/g, ''));
+              price = Number(parts[2].replace(/,/g, ''));
+            }
+            if (symbol && shares > 0 && price >= 0) {
+              items.push({ symbol, name, shares, price });
+            }
+          }
+        }
+        applyImportedHoldings(items);
+        if (items.length > 0) document.getElementById('holdings-paste-box').value = '';
+      });
+
+      document.getElementById('holdings-csv-input').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const text = ev.target.result.replace(/^\uFEFF/, '');
+          const lines = text.split(/\r?\n/).filter(Boolean);
+          if (lines.length < 2) return showToast('CSV 內容為空');
+          const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+          const idxSym = headers.findIndex(h => /代碼|代號|股號|symbol|code/i.test(h));
+          const idxName = headers.findIndex(h => /名稱|股名|name/i.test(h));
+          const idxShares = headers.findIndex(h => /股數|庫存|張數|數量|shares|qty/i.test(h));
+          const idxPrice = headers.findIndex(h => /均價|平均成本|成本價|成本|avg|cost|price/i.test(h));
+          const isLots = idxShares >= 0 && /張/.test(headers[idxShares]);
+
+          const items = [];
+          lines.slice(1).forEach(line => {
+            const cols = line.split(',').map(c => c.replace(/"/g, '').trim());
+            const sym = cols[idxSym >= 0 ? idxSym : 0];
+            let shares = Number((cols[idxShares >= 0 ? idxShares : 1] || '').replace(/,/g, ''));
+            if (isLots && shares > 0 && shares < 1000) shares = Math.round(shares * 1000);
+            const price = Number((cols[idxPrice >= 0 ? idxPrice : 2] || '').replace(/,/g, ''));
+            const name = idxName >= 0 ? cols[idxName] : '';
+            if (sym && shares > 0 && !Number.isNaN(price)) {
+              items.push({ symbol: sym, name, shares, price });
+            }
+          });
+          applyImportedHoldings(items);
         };
         reader.readAsText(file);
         e.target.value = '';
