@@ -5,10 +5,10 @@ const TPEX_URL = 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_
 
 function pickMisPrice(item) {
   const tryNums = [
-    item.z, // 最新成交價 / 當日收盤價
-    item.b ? String(item.b).split('_')[0] : null, // 最佳買價
-    item.a ? String(item.a).split('_')[0] : null, // 最佳賣價
-    item.y  // 昨日收盤價
+    item.z,
+    item.b ? String(item.b).split('_')[0] : null,
+    item.a ? String(item.a).split('_')[0] : null,
+    item.y
   ];
   for (const raw of tryNums) {
     const val = Number(String(raw || '').replace(/,/g, '').trim());
@@ -30,15 +30,11 @@ module.exports = async function handler(req, res) {
   const prices = {};
 
   try {
-    // 1. 優先向證交所 MIS 查詢當日最新成交/收盤價（同時查詢上市 tse 與上櫃 otc）
     if (rawSymbols.length > 0) {
       const channels = rawSymbols.flatMap(s => [`tse_${s}.tw`, `otc_${s}.tw`]).join('|');
       const misUrl = `${MIS_URL}?json=1&delay=0&ex_ch=${encodeURIComponent(channels)}&_=${Date.now()}`;
       const misRes = await fetch(misUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Accept': 'application/json'
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
       });
 
       if (misRes.ok) {
@@ -62,7 +58,6 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 2. 若有漏掉的代碼，補查 OpenAPI 備援
     const missing = rawSymbols.filter(s => !prices[s]);
     if (rawSymbols.length === 0 || missing.length > 0) {
       const [twseRes, tpexRes] = await Promise.all([
@@ -118,9 +113,6 @@ module.exports = async function handler(req, res) {
       fetchedAt: new Date().toISOString()
     });
   } catch (err) {
-    return res.status(502).json({
-      error: 'Failed to fetch TWSE/TPEx data',
-      message: err.message
-    });
+    return res.status(502).json({ error: 'Failed to fetch TWSE/TPEx data', message: err.message });
   }
 };
