@@ -675,8 +675,8 @@
                 <div class="flex flex-wrap items-center gap-2">
                   <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer transition-colors">
                     <i data-lucide="camera" class="w-4 h-4"></i>
-                    <span id="ai-upload-label">選擇／拍攝截圖辨識</span>
-                    <input id="ai-screenshot-input" type="file" accept="image/*" class="hidden" />
+                    <span id="ai-upload-label">選擇／拍攝多張截圖辨識</span>
+                    <input id="ai-screenshot-input" type="file" accept="image/*" multiple class="hidden" />
                   </label>
                   <label class="inline-flex items-center gap-1.5 text-slate-500 cursor-pointer">
                     <input id="ai-replace-chk" type="checkbox" class="w-3.5 h-3.5 rounded text-indigo-600" />
@@ -2116,9 +2116,37 @@
       document.getElementById('goto-settings-for-key-btn').addEventListener('click', () => openModal('settings-modal'));
 
       let aiParsedItems = [];
+      function renderAiParsedList() {
+        const box = document.getElementById('ai-preview-box');
+        const listEl = document.getElementById('ai-parsed-list');
+        if (!aiParsedItems || aiParsedItems.length === 0) {
+          box.classList.add('hidden');
+          listEl.innerHTML = '';
+          return;
+        }
+        box.classList.remove('hidden');
+        listEl.innerHTML = aiParsedItems.map((it, idx) => `
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 border border-slate-200/70 dark:border-slate-700">
+            <div><strong>${it.symbol}</strong> ${it.name || ''} · <span class="text-teal-600 dark:text-teal-400">${it.type || '買入'}</span></div>
+            <div class="flex items-center gap-2 tabular-nums">
+              <span>${Number(it.shares).toLocaleString('zh-TW')} 股 @ ${it.price} (${it.date})</span>
+              <button type="button" data-ai-del="${idx}" class="ai-del-row text-slate-400 hover:text-rose-500 font-bold px-1" title="移除此筆">×</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('ai-parsed-list').addEventListener('click', e => {
+        const btn = e.target.closest('.ai-del-row');
+        if (btn) {
+          aiParsedItems.splice(Number(btn.dataset.aiDel), 1);
+          renderAiParsedList();
+        }
+      });
+
       document.getElementById('ai-screenshot-input').addEventListener('change', async e => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
         if (!state.geminiApiKey) {
           openModal('settings-modal');
           showToast('請先設定 Gemini API Key');
@@ -2126,26 +2154,24 @@
           return;
         }
         const lbl = document.getElementById('ai-upload-label');
-        lbl.textContent = 'AI 辨識中...';
+        lbl.textContent = `AI 正在辨識 ${files.length} 張截圖...`;
         try {
-          const base64 = await new Promise((resolve, reject) => {
+          const imageParts = await Promise.all(files.map(file => new Promise((resolve, reject) => {
             const r = new FileReader();
-            r.onload = () => resolve(r.result.split(',')[1]);
+            r.onload = () => resolve({ inlineData: { mimeType: file.type || 'image/png', data: r.result.split(',')[1] } });
             r.onerror = reject;
             r.readAsDataURL(file);
-          });
-          const promptText = `你是一個專業的台股對帳單與庫存截圖解析器。請辨識圖片中的所有台灣股票庫存或交易明細，並嚴格只回傳 JSON 陣列（不要其他文字），每個元素格式為：
-{"symbol":"股票代碼(如2330)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${new Date().toISOString().slice(0,10)})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}`;
+          })));
+
+          const promptText = `你是一個專業的台股對帳單與庫存截圖解析器。請一次辨識這 ${files.length} 張圖片中的所有台灣股票庫存或交易明細（若多張截圖有重疊同一筆資料請自動合併去重），並嚴格只回傳 JSON 陣列（不要其他文字），每個元素格式為：
+{"symbol":"股票代碼(如2330)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${toLocalIso(new Date())})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}`;
 
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{
-                parts: [
-                  { text: promptText },
-                  { inlineData: { mimeType: file.type || 'image/png', data: base64 } }
-                ]
+                parts: [{ text: promptText }, ...imageParts]
               }]
             })
           });
@@ -2156,18 +2182,12 @@
           aiParsedItems = JSON.parse(match[0]);
           if (!Array.isArray(aiParsedItems) || aiParsedItems.length === 0) throw new Error('未辨識到任何股票資料');
 
-          document.getElementById('ai-preview-box').classList.remove('hidden');
-          document.getElementById('ai-parsed-list').innerHTML = aiParsedItems.map((it, idx) => `
-            <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 border border-slate-200/70 dark:border-slate-700">
-              <div><strong>${it.symbol}</strong> ${it.name || ''} · <span class="text-teal-600 dark:text-teal-400">${it.type || '買入'}</span></div>
-              <div class="tabular-nums">${Number(it.shares).toLocaleString('zh-TW')} 股 @ ${it.price} (${it.date})</div>
-            </div>
-          `).join('');
-          showToast('已成功辨識 ' + aiParsedItems.length + ' 筆資料，請確認後匯入');
+          renderAiParsedList();
+          showToast(`已從 ${files.length} 張截圖辨識出 ${aiParsedItems.length} 筆資料`);
         } catch (err) {
           showToast('截圖辨識失敗：' + err.message);
         } finally {
-          lbl.textContent = '選擇／拍攝截圖辨識';
+          lbl.textContent = '選擇／拍攝多張截圖辨識';
           e.target.value = '';
         }
       });
