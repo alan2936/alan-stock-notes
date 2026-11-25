@@ -900,7 +900,7 @@
     const TW_STOCK_NAMES = {
       '2330': '台積電', '0050': '元大台灣50', '00878': '國泰永續高股息', '0056': '元大高股息',
       '00919': '群益台灣精選高息', '2317': '鴻海', '2454': '聯發科', '2881': '富邦金',
-      '2882': '國泰金', '2891': '中信金', '2308': '台達電', '2412': '中華電', '006208': '富邦台50'
+      '2882': '國泰金', '2891': '中信金', '2308': '台達電', '2412': '中華電', '006208': '富邦台50', '00850': '元大臺灣ESG永續', '00981A': '主動統一台股增長', '00982A': '主動群益台灣強棒', '00685L': '群益臺灣加權正2'
     };
 
     const DEMO_TRANSACTIONS = [
@@ -1917,6 +1917,17 @@
         const json = await res.json();
         if (json && json.chips && Object.keys(json.chips).length > 0) {
           liveChipsMap = { ...liveChipsMap, ...json.chips };
+          Object.keys(json.chips).forEach(sym => {
+            const realName = json.chips[sym]?.name;
+            if (realName) {
+              TW_STOCK_NAMES[sym] = realName;
+              state.transactions.forEach(tx => {
+                if (tx.symbol === sym && (!tx.name || tx.name === sym)) {
+                  tx.name = realName;
+                }
+              });
+            }
+          });
           if (json.dataDate) liveChipsDate = json.dataDate;
           renderChipsTable(analyzePortfolio());
           if (!silent) showToast('已更新 ' + Object.keys(json.chips).length + ' 檔盤後籌碼與資券資料');
@@ -2376,6 +2387,15 @@
           Object.keys(fetched).forEach(sym => {
             if (fetched[sym] && fetched[sym].price > 0) {
               state.prices[sym] = fetched[sym].price;
+              if (fetched[sym].name) {
+                TW_STOCK_NAMES[sym] = fetched[sym].name;
+                state.transactions.forEach(tx => {
+                  if (tx.symbol === sym && (!tx.name || tx.name === sym)) {
+                    tx.name = fetched[sym].name;
+                    pushTransactionToCloud(tx);
+                  }
+                });
+              }
               updatedCount++;
             }
           });
