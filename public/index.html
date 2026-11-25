@@ -673,6 +673,9 @@
                   <button id="goto-settings-for-key-btn" type="button" class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-semibold shrink-0">前往設定</button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                  <input id="ai-fallback-symbol" type="text" placeholder="預設股票代碼（選填，截圖無代碼時帶入，如 2330）" class="flex-1 min-w-[220px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
                   <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer transition-colors">
                     <i data-lucide="camera" class="w-4 h-4"></i>
                     <span id="ai-upload-label">選擇／拍攝多張截圖辨識</span>
@@ -2126,8 +2129,11 @@
         }
         box.classList.remove('hidden');
         listEl.innerHTML = aiParsedItems.map((it, idx) => `
-          <div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 border border-slate-200/70 dark:border-slate-700">
-            <div><strong>${it.symbol}</strong> ${it.name || ''} · <span class="text-teal-600 dark:text-teal-400">${it.type || '買入'}</span></div>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 border border-slate-200/70 dark:border-slate-700">
+            <div class="flex items-center gap-1.5">
+              <input type="text" value="${it.symbol || ''}" data-ai-sym="${idx}" placeholder="代碼" class="ai-edit-sym w-16 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-xs" />
+              <span>${it.name || TW_STOCK_NAMES[it.symbol] || ''} · <span class="text-teal-600 dark:text-teal-400">${it.type || '買入'}</span></span>
+            </div>
             <div class="flex items-center gap-2 tabular-nums">
               <span>${Number(it.shares).toLocaleString('zh-TW')} 股 @ ${it.price} (${it.date})</span>
               <button type="button" data-ai-del="${idx}" class="ai-del-row text-slate-400 hover:text-rose-500 font-bold px-1" title="移除此筆">×</button>
@@ -2135,6 +2141,16 @@
           </div>
         `).join('');
       }
+
+      document.getElementById('ai-parsed-list').addEventListener('input', e => {
+        const inp = e.target.closest('.ai-edit-sym');
+        if (inp) {
+          const idx = Number(inp.dataset.aiSym);
+          const sym = inp.value.trim();
+          aiParsedItems[idx].symbol = sym;
+          if (TW_STOCK_NAMES[sym]) aiParsedItems[idx].name = TW_STOCK_NAMES[sym];
+        }
+      });
 
       document.getElementById('ai-parsed-list').addEventListener('click', e => {
         const btn = e.target.closest('.ai-del-row');
@@ -2163,8 +2179,12 @@
             r.readAsDataURL(file);
           })));
 
+          const fallbackSym = (document.getElementById('ai-fallback-symbol').value || '').trim();
+          const fallbackHint = fallbackSym
+            ? `\n特別注意：若圖片中沒有顯示股票代碼或名稱，請統一帶入股票代碼「${fallbackSym}」（名稱「${TW_STOCK_NAMES[fallbackSym] || fallbackSym}」）。`
+            : '';
           const promptText = `你是一個專業的台股對帳單與庫存截圖解析器。請一次辨識這 ${files.length} 張圖片中的所有台灣股票庫存或交易明細（若多張截圖有重疊同一筆資料請自動合併去重），並嚴格只回傳 JSON 陣列（不要其他文字），每個元素格式為：
-{"symbol":"股票代碼(如2330)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${toLocalIso(new Date())})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}`;
+{"symbol":"股票代碼(如2330)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${toLocalIso(new Date())})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}${fallbackHint}`;
 
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey)}`, {
             method: 'POST',
@@ -2179,7 +2199,14 @@
           const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
           const match = rawText.match(/\[[\s\S]*\]/);
           if (!match) throw new Error(json?.error?.message || '無法解析辨識結果');
-          aiParsedItems = JSON.parse(match[0]);
+          aiParsedItems = JSON.parse(match[0]).map(it => {
+            const sym = String(it.symbol || '').trim() || fallbackSym;
+            return {
+              ...it,
+              symbol: sym,
+              name: it.name || TW_STOCK_NAMES[sym] || sym
+            };
+          });
           if (!Array.isArray(aiParsedItems) || aiParsedItems.length === 0) throw new Error('未辨識到任何股票資料');
 
           renderAiParsedList();
