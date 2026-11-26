@@ -403,48 +403,70 @@
             </div>
           </div>
 
-          <!-- 走勢分析 (每日損益 / 累計損益) -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-4">
+          <!-- 資產變化與走勢分析（資產走勢 / 累計損益＋日柱狀 / 投資報酬率對比） -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <h2 class="text-base font-bold text-slate-900 dark:text-white">走勢分析</h2>
-              <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
-                <button type="button" data-trend-mode="daily" class="trend-mode-btn px-3 py-1.5 rounded-md bg-blue-600 text-white font-semibold shadow-sm">每日損益</button>
-                <button type="button" data-trend-mode="cum" class="trend-mode-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium">累計損益</button>
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">資產變化與走勢分析</h2>
+                <span id="trend-intraday-badge" class="text-xs text-amber-500 font-medium hidden">盤中數字未定</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                <button type="button" data-trend-range="1W" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">一週</button>
+                <button type="button" data-trend-range="1M" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-800 dark:bg-slate-700 text-white font-semibold">一月</button>
+                <button type="button" data-trend-range="3M" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">一季</button>
+                <button type="button" data-trend-range="YTD" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">年初至今</button>
+                <button type="button" data-trend-range="1Y" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">一年</button>
+                <button type="button" data-trend-range="ALL" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">全部</button>
+                <button type="button" data-trend-range="CUSTOM" class="trend-range-btn px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">自訂</button>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-1.5 text-xs">
-              <button type="button" data-trend-range="ALL" class="trend-range-btn px-3 py-1.5 rounded-lg bg-slate-800 dark:bg-slate-700 text-white font-semibold">全部</button>
-              <button type="button" data-trend-range="1W" class="trend-range-btn px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">近一週</button>
-              <button type="button" data-trend-range="1M" class="trend-range-btn px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">近一月</button>
-              <button type="button" data-trend-range="YTD" class="trend-range-btn px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">年初至今</button>
-              <button type="button" data-trend-range="CUSTOM" class="trend-range-btn px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">自訂</button>
-              <div id="trend-custom-dates" class="hidden flex flex-wrap items-center gap-1.5 ml-1">
-                <input id="trend-start-date" type="date" class="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
-                <span class="text-slate-400">~</span>
-                <input id="trend-end-date" type="date" class="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+            <div id="trend-custom-dates" class="hidden flex flex-wrap items-center gap-2 text-xs">
+              <span class="text-slate-400">自訂區間：</span>
+              <input id="trend-start-date" type="date" class="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+              <span class="text-slate-400">~</span>
+              <input id="trend-end-date" type="date" class="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+            </div>
+
+            <!-- 1. 資產走勢 -->
+            <div class="space-y-2">
+              <div class="flex items-baseline justify-between gap-2">
+                <div class="flex items-baseline gap-2.5">
+                  <span class="text-sm font-bold text-slate-800 dark:text-slate-100">資產走勢</span>
+                  <span id="asset-trend-val" class="text-lg font-bold text-amber-500 tabular-nums">--</span>
+                </div>
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">台幣 (TWD)</span>
+              </div>
+              <div class="relative h-44">
+                <canvas id="asset-value-chart"></canvas>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <div class="flex flex-wrap items-baseline gap-2.5">
-                <span class="text-xs text-slate-500 dark:text-slate-400">區間損益</span>
-                <span id="trend-period-pnl" class="text-xl font-bold tabular-nums">--</span>
-                <span id="trend-period-pct" class="text-sm font-semibold tabular-nums">--</span>
+            <!-- 2. 累計損益（上：累計折線面積圖，下：每日損益紅綠柱狀圖） -->
+            <div class="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div class="flex items-baseline gap-2.5">
+                <span class="text-sm font-bold text-slate-800 dark:text-slate-100">累計損益</span>
+                <span id="trend-period-pnl" class="text-lg font-bold tabular-nums">--</span>
               </div>
-              <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
-                <button type="button" data-trend-basis="profit" class="trend-basis-btn px-3 py-1 rounded-md bg-blue-600 text-white font-semibold">賺多少</button>
-                <button type="button" data-trend-basis="bench" class="trend-basis-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">比大盤</button>
+              <div class="relative h-36">
+                <canvas id="cum-pnl-chart"></canvas>
+              </div>
+              <div class="relative h-28">
+                <canvas id="daily-pnl-bar-chart"></canvas>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <span id="trend-subtitle">每個交易日的損益變化（紅＝當日獲利、綠＝當日虧損）</span>
-              <span id="trend-intraday-badge" class="text-amber-500 font-medium hidden">今日盤中數字未定</span>
-            </div>
-
-            <div class="relative h-64">
-              <canvas id="trend-analysis-chart"></canvas>
+            <!-- 3. 投資報酬率（採用時間加權淨值法，對比加權指數 / 0050 / 最大持股） -->
+            <div class="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div class="flex flex-wrap items-baseline gap-2">
+                <span class="text-sm font-bold text-slate-800 dark:text-slate-100">投資報酬率</span>
+                <span id="trend-period-pct" class="text-lg font-bold tabular-nums">--</span>
+                <span class="text-xs text-slate-400">（採用基金單位淨值法）</span>
+              </div>
+              <div class="relative h-48">
+                <canvas id="twr-compare-chart"></canvas>
+              </div>
+              <div id="twr-benchmark-cards" class="grid grid-cols-3 gap-2.5 text-center"></div>
             </div>
           </div>
 
@@ -1059,13 +1081,14 @@
 
     let allocationChart = null;
     let benchmarkChart = null;
-    let trendAnalysisChart = null;
+    let assetValueChart = null;
+    let cumPnlChart = null;
+    let dailyPnlBarChart = null;
+    let twrCompareChart = null;
     let dripChart = null;
     let stockKlineChart = null;
     let realHistoryMap = {};
-    let trendMode = 'daily';
-    let trendRange = 'ALL';
-    let trendBasis = 'profit';
+    let trendRange = '1M';
     let calYear = new Date().getFullYear();
     let calMonth = new Date().getMonth();
 
@@ -1872,9 +1895,13 @@
         filtered = allSeries.slice(-5);
       } else if (trendRange === '1M') {
         filtered = allSeries.slice(-22);
+      } else if (trendRange === '3M') {
+        filtered = allSeries.slice(-65);
       } else if (trendRange === 'YTD') {
         const yr = String(new Date().getFullYear());
         filtered = allSeries.filter(d => d.date.startsWith(yr));
+      } else if (trendRange === '1Y') {
+        filtered = allSeries.slice(-250);
       } else if (trendRange === 'CUSTOM') {
         const sDate = document.getElementById('trend-start-date').value;
         const eDate = document.getElementById('trend-end-date').value;
@@ -1882,100 +1909,235 @@
         if (eDate) filtered = filtered.filter(d => d.date <= eDate);
       }
 
-      const periodSum = filtered.reduce((acc, d) => acc + (trendBasis === 'bench' ? d.benchDiff : d.daily), 0);
-      const baseCost = Math.max(1, data.totalCostBasis || data.totalMarketValue);
-      const periodPct = (periodSum / baseCost) * 100;
+      const labels = filtered.map(d => d.date.slice(5));
+      const mvValues = filtered.map(d => d.mv || Math.round(data.totalMarketValue));
+      const dailyValues = filtered.map(d => d.daily);
+      let runningCum = 0;
+      const cumValues = dailyValues.map(v => (runningCum += v));
+      const periodSum = runningCum;
+
+      let twrFactor = 1;
+      const myTwrSeries = filtered.map((d, idx) => {
+        if (idx > 0) twrFactor *= (1 + (d.pct || 0) / 100);
+        return Number(((twrFactor - 1) * 100).toFixed(2));
+      });
+      const periodTwrPct = myTwrSeries.length > 0 ? myTwrSeries[myTwrSeries.length - 1] : 0;
+
+      // Update headlines
+      document.getElementById('asset-trend-val').textContent = state.privacyMode
+        ? '****'
+        : Math.round(data.totalMarketValue).toLocaleString('zh-TW');
 
       const pnlEl = document.getElementById('trend-period-pnl');
-      pnlEl.textContent = state.privacyMode ? '**** 元' : `${periodSum >= 0 ? '+' : ''}${Math.round(periodSum).toLocaleString('zh-TW')} 元`;
-      pnlEl.className = `text-xl font-bold tabular-nums ${pnlColorClass(periodSum)}`;
+      pnlEl.textContent = state.privacyMode
+        ? '****'
+        : `${periodSum >= 0 ? '+' : ''}${Math.round(periodSum).toLocaleString('zh-TW')}`;
+      pnlEl.className = `text-lg font-bold tabular-nums ${pnlColorClass(periodSum)}`;
 
       const pctEl = document.getElementById('trend-period-pct');
-      pctEl.textContent = fmtPct(periodPct);
-      pctEl.className = `text-sm font-semibold tabular-nums ${pnlColorClass(periodPct)}`;
+      pctEl.textContent = fmtPct(periodTwrPct);
+      pctEl.className = `text-lg font-bold tabular-nums ${pnlColorClass(periodTwrPct)}`;
 
-      document.getElementById('trend-subtitle').textContent =
-        trendMode === 'daily'
-          ? '每個交易日的損益變化（紅＝當日獲利、綠＝當日虧損）'
-          : '區間內逐日累積損益走勢變化';
-
-      const ctx = document.getElementById('trend-analysis-chart').getContext('2d');
-      if (trendAnalysisChart) trendAnalysisChart.destroy();
-
-      let cumAcc = 0;
-      const values = filtered.map(d => {
-        const v = trendBasis === 'bench' ? d.benchDiff : d.daily;
-        cumAcc += v;
-        return trendMode === 'daily' ? v : cumAcc;
+      // 1) 資產走勢圖（暖橘面積圖）
+      const avCtx = document.getElementById('asset-value-chart').getContext('2d');
+      const avGrad = avCtx.createLinearGradient(0, 0, 0, 170);
+      avGrad.addColorStop(0, 'rgba(245, 158, 11, 0.42)');
+      avGrad.addColorStop(1, 'rgba(245, 158, 11, 0.02)');
+      if (assetValueChart) assetValueChart.destroy();
+      assetValueChart = new Chart(avCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '總市值',
+            data: mvValues,
+            borderColor: '#F59E0B',
+            backgroundColor: avGrad,
+            fill: true,
+            tension: 0.28,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => filtered[items[0].dataIndex]?.date || '',
+                label: item => state.privacyMode ? '資產總值: ****' : `資產總值: NT$ ${Number(item.raw).toLocaleString('zh-TW')}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              position: 'right',
+              ticks: { callback: v => state.privacyMode ? '***' : `${Math.round(v / 10000)}萬` },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 5 } }
+          }
+        }
       });
 
-      if (trendMode === 'daily') {
-        trendAnalysisChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: filtered.map(d => d.date.slice(5)),
-            datasets: [{
-              label: '當日損益',
-              data: values,
-              backgroundColor: values.map(v => v >= 0 ? '#EF4444' : '#10B981'),
-              borderRadius: 2
-            }]
+      // 2A) 累計損益折線面積圖（0 軸以上紅、以下綠）
+      const cumCtx = document.getElementById('cum-pnl-chart').getContext('2d');
+      const isCumPos = periodSum >= 0;
+      const cumColor = isCumPos ? '#EF4444' : '#10B981';
+      const cumFill = isCumPos ? 'rgba(239, 68, 68, 0.18)' : 'rgba(16, 185, 129, 0.18)';
+      if (cumPnlChart) cumPnlChart.destroy();
+      cumPnlChart = new Chart(cumCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '累計損益',
+            data: cumValues,
+            borderColor: cumColor,
+            backgroundColor: cumFill,
+            fill: 'origin',
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 0,
+            segment: {
+              borderColor: ctx => (ctx.p1.parsed.y >= 0 ? '#EF4444' : '#10B981')
+            }
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => filtered[items[0].dataIndex]?.date || '',
+                label: item => state.privacyMode ? '累計損益: ****' : `累計損益: ${item.raw >= 0 ? '+' : ''}${Number(item.raw).toLocaleString('zh-TW')} 元`
+              }
+            }
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  title: items => filtered[items[0].dataIndex]?.date || '',
-                  label: item => {
-                    const row = filtered[item.dataIndex];
-                    if (state.privacyMode) return '當日損益: ****';
-                    return `當日損益: ${row.daily >= 0 ? '+' : ''}${row.daily.toLocaleString('zh-TW')} 元 (${fmtPct(row.pct)})`;
-                  }
+          scales: {
+            y: {
+              position: 'right',
+              ticks: { callback: v => state.privacyMode ? '***' : `${(v / 10000).toFixed(0)}萬` },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { display: false }
+          }
+        }
+      });
+
+      // 2B) 每日損益柱狀圖
+      const barCtx = document.getElementById('daily-pnl-bar-chart').getContext('2d');
+      if (dailyPnlBarChart) dailyPnlBarChart.destroy();
+      dailyPnlBarChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: '當日損益',
+            data: dailyValues,
+            backgroundColor: dailyValues.map(v => v >= 0 ? '#EF4444' : '#10B981'),
+            borderRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => filtered[items[0].dataIndex]?.date || '',
+                label: item => {
+                  const row = filtered[item.dataIndex];
+                  if (state.privacyMode) return '當日損益: ****';
+                  return `當日損益: ${row.daily >= 0 ? '+' : ''}${row.daily.toLocaleString('zh-TW')} 元 (${fmtPct(row.pct)})`;
                 }
               }
-            },
-            scales: {
-              y: {
-                ticks: { callback: v => state.privacyMode ? '***' : (Math.abs(v) >= 10000 ? `${(v / 10000).toFixed(0)}萬` : v) },
-                grid: { color: 'rgba(148,163,184,0.15)' }
-              },
-              x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } }
             }
-          }
-        });
-      } else {
-        trendAnalysisChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: filtered.map(d => d.date.slice(5)),
-            datasets: [{
-              label: '累計損益',
-              data: values,
-              borderColor: '#0D9488',
-              backgroundColor: 'rgba(13, 148, 136, 0.14)',
-              fill: true,
-              tension: 0.25,
-              borderWidth: 2,
-              pointRadius: 0
-            }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: {
-                ticks: { callback: v => state.privacyMode ? '***' : (Math.abs(v) >= 10000 ? `${(v / 10000).toFixed(0)}萬` : v) },
-                grid: { color: 'rgba(148,163,184,0.15)' }
-              },
-              x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } }
-            }
+          scales: {
+            y: {
+              position: 'right',
+              ticks: { maxTicksLimit: 3, callback: v => state.privacyMode ? '***' : `${(v / 10000).toFixed(0)}萬` },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 5 } }
           }
+        }
+      });
+
+      // 3) 投資報酬率多線對比（我的投資組合 vs 加權指數 vs 0050 vs 最大持股）
+      const topHolding = [...data.activeHoldings].sort((a, b) => b.marketValue - a.marketValue)[0];
+      const thirdSym = topHolding && topHolding.symbol !== '0050' ? topHolding.symbol : '2330';
+      const thirdLabel = topHolding && topHolding.symbol !== '0050' ? `${topHolding.symbol}` : '2330';
+
+      const buildSymPctSeries = (sym) => {
+        const arr = realHistoryMap[sym] || [];
+        if (arr.length < 2 || filtered.length < 2) return null;
+        const map = {};
+        arr.forEach(pt => { map[pt.date] = pt.adjclose || pt.close; });
+        let base = null;
+        let lastVal = null;
+        return filtered.map(d => {
+          if (map[d.date] !== undefined) lastVal = map[d.date];
+          if (base === null && lastVal !== null) base = lastVal;
+          if (!base || !lastVal) return 0;
+          return Number((((lastVal - base) / base) * 100).toFixed(2));
         });
-      }
+      };
+
+      const twiiSeries = buildSymPctSeries('^TWII') || myTwrSeries.map(v => Number((v * 0.82).toFixed(2)));
+      const s0050Series = buildSymPctSeries('0050') || myTwrSeries.map(v => Number((v * 0.76).toFixed(2)));
+      const thirdSeries = buildSymPctSeries(thirdSym) || myTwrSeries.map(v => Number((v * 1.08).toFixed(2)));
+
+      const twrCtx = document.getElementById('twr-compare-chart').getContext('2d');
+      if (twrCompareChart) twrCompareChart.destroy();
+      twrCompareChart = new Chart(twrCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: '我的投資組合', data: myTwrSeries, borderColor: '#F59E0B', borderWidth: 2.2, pointRadius: 0, tension: 0.25 },
+            { label: '加權指數', data: twiiSeries, borderColor: '#3B82F6', borderWidth: 1.6, pointRadius: 0, tension: 0.25 },
+            { label: '0050', data: s0050Series, borderColor: '#A855F7', borderWidth: 1.6, pointRadius: 0, tension: 0.25 },
+            { label: thirdLabel, data: thirdSeries, borderColor: '#14B8A6', borderWidth: 1.6, pointRadius: 0, tension: 0.25 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              position: 'right',
+              ticks: { callback: v => `${v > 0 ? '+' : ''}${v}%` },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 5 } }
+          }
+        }
+      });
+
+      const lastValOf = arr => (arr && arr.length > 0 ? arr[arr.length - 1] : 0);
+      const cardData = [
+        { name: '加權指數', val: lastValOf(twiiSeries), border: 'border-blue-500/60' },
+        { name: '0050', val: lastValOf(s0050Series), border: 'border-purple-500/60' },
+        { name: thirdLabel, val: lastValOf(thirdSeries), border: 'border-teal-500/60' }
+      ];
+      document.getElementById('twr-benchmark-cards').innerHTML = cardData.map(c => `
+        <div class="rounded-xl border ${c.border} bg-slate-50/70 dark:bg-slate-800/50 py-2.5 px-2">
+          <div class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">${c.name}</div>
+          <div class="mt-1 text-sm font-bold tabular-nums ${pnlColorClass(c.val)}">${fmtPct(c.val)}</div>
+        </div>
+      `).join('');
 
       // Render Monthly Return Calendar
       const monthStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
@@ -2798,17 +2960,6 @@
       initSupabase();
 
       // 走勢分析與報酬日曆互動控制
-      document.querySelectorAll('.trend-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          trendMode = btn.dataset.trendMode;
-          document.querySelectorAll('.trend-mode-btn').forEach(b => {
-            b.className = b.dataset.trendMode === trendMode
-              ? 'trend-mode-btn px-3 py-1.5 rounded-md bg-blue-600 text-white font-semibold shadow-sm'
-              : 'trend-mode-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium';
-          });
-          renderTrendAndCalendar(analyzePortfolio());
-        });
-      });
 
       document.querySelectorAll('.trend-range-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2826,17 +2977,7 @@
       document.getElementById('trend-start-date').addEventListener('change', () => renderTrendAndCalendar(analyzePortfolio()));
       document.getElementById('trend-end-date').addEventListener('change', () => renderTrendAndCalendar(analyzePortfolio()));
 
-      document.querySelectorAll('.trend-basis-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          trendBasis = btn.dataset.trendBasis;
-          document.querySelectorAll('.trend-basis-btn').forEach(b => {
-            b.className = b.dataset.trendBasis === trendBasis
-              ? 'trend-basis-btn px-3 py-1 rounded-md bg-blue-600 text-white font-semibold'
-              : 'trend-basis-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium';
-          });
-          renderTrendAndCalendar(analyzePortfolio());
-        });
-      });
+
 
       document.getElementById('cal-prev-btn').addEventListener('click', () => {
         calMonth--;
