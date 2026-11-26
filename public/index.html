@@ -1785,10 +1785,20 @@
               const pt = priceLookup[sym][d] || lastClose[sym];
               if (pt && pt.close > 0) {
                 const sh = held[sym] || 0;
-                if (lastClose[sym] && lastClose[sym].adj > 0 && sh > 0) {
-                  // 使用含息還原價計算當日真實報酬率，避免除息日跳空被誤算為虧損
-                  const dailyRet = (pt.adj - lastClose[sym].adj) / lastClose[sym].adj;
-                  dayPnl += (lastClose[sym].close * sh) * dailyRet;
+                if (lastClose[sym] && lastClose[sym].close > 0 && sh > 0) {
+                  // 1. 檢查當日是否有已入帳的現金股利（除息日補回股利，避免除息跳空被誤算為虧損）
+                  const dayDiv = sortedTx
+                    .filter(tx => tx.symbol === sym && tx.type === '股利' && tx.date === d)
+                    .reduce((acc, tx) => acc + (tx.shares * tx.price), 0);
+
+                  if (dayDiv > 0) {
+                    dayPnl += (pt.close - lastClose[sym].close) * sh + dayDiv;
+                  } else if (lastClose[sym].adj > 0 && Math.abs((pt.adj / lastClose[sym].adj) - (pt.close / lastClose[sym].close)) > 0.002) {
+                    const dailyRet = (pt.adj - lastClose[sym].adj) / lastClose[sym].adj;
+                    dayPnl += (lastClose[sym].close * sh) * dailyRet;
+                  } else {
+                    dayPnl += (pt.close - lastClose[sym].close) * sh;
+                  }
                 }
                 lastClose[sym] = pt;
                 dayMv += pt.close * sh;
