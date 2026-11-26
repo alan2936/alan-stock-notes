@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
 
     // 批次真實歷史日線 (供真實報酬日曆、走勢分析、績效 vs 0050 含股利用)
     if (batchHistory) {
-      const allSyms = Array.from(new Set([...rawSymbols, compareSym].filter(Boolean)));
+      const allSyms = Array.from(new Set([...rawSymbols, compareSym, '^TWII', '0050'].filter(Boolean)));
       const results = await Promise.all(
         allSyms.map(async s => {
           const r = await fetchTwHistory(s, '3y');
