@@ -1033,7 +1033,7 @@
 
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
-    const DEFAULT_SUPABASE_URL = '';
+    const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
     const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
@@ -1116,8 +1116,27 @@
         updateCloudUI();
         return;
       }
-      supabaseClient = window.supabase.createClient(url, key);
+      // 檢查網址列是否有 OAuth 回調錯誤訊息
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const authErr = urlParams.get('error_description') || hashParams.get('error_description');
+      if (authErr) {
+        showToast('Google 登入失敗：' + decodeURIComponent(authErr));
+      }
+
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          detectSessionInUrl: true,
+          persistSession: true,
+          autoRefreshToken: true
+        }
+      });
+
+      // 等待 supabase-js 自動完成 URL OAuth token/code 解析
       const { data } = await supabaseClient.auth.getSession();
+      if (urlParams.get('code') || hashParams.get('access_token')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       currentUser = data?.session?.user || null;
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         currentUser = session?.user || null;
@@ -1732,7 +1751,7 @@
           const arr = realHistoryMap[sym] || [];
           arr.forEach(pt => {
             dateSet.add(pt.date);
-            priceLookup[sym][pt.date] = pt.close;
+            priceLookup[sym][pt.date] = { close: pt.close, adj: pt.adjclose || pt.close };
           });
         }
         // 也把大盤比較標的的日期納入
@@ -1763,14 +1782,16 @@
             let dayMv = 0;
             let dayPnl = 0;
             for (const sym of syms) {
-              const c = priceLookup[sym][d] ?? lastClose[sym];
-              if (c > 0) {
+              const pt = priceLookup[sym][d] || lastClose[sym];
+              if (pt && pt.close > 0) {
                 const sh = held[sym] || 0;
-                if (lastClose[sym] > 0 && sh > 0) {
-                  dayPnl += (c - lastClose[sym]) * sh;
+                if (lastClose[sym] && lastClose[sym].adj > 0 && sh > 0) {
+                  // 使用含息還原價計算當日真實報酬率，避免除息日跳空被誤算為虧損
+                  const dailyRet = (pt.adj - lastClose[sym].adj) / lastClose[sym].adj;
+                  dayPnl += (lastClose[sym].close * sh) * dailyRet;
                 }
-                lastClose[sym] = c;
-                dayMv += c * sh;
+                lastClose[sym] = pt;
+                dayMv += pt.close * sh;
               }
             }
 
