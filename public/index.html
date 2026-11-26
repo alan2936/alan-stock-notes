@@ -1790,12 +1790,18 @@
       xirrEl.className = `mt-1 text-2xl font-bold tabular-nums ${pnlColorClass(data.portfolioXirr)}`;
 
       // Allocation Donut
-      const palette = ['#0D9488', '#3B82F6', '#6366F1', '#F59E0B', '#EC4899', '#8B5CF6', '#10B981'];
+      const palette = ['#0D9488', '#0284C7', '#8B5CF6', '#EC4899', '#F59E0B', '#22C55E', '#2563EB', '#EF4444', '#06B6D4', '#EAB308', '#D946EF', '#F97316'];
+      const getSliceColor = (i) => {
+        if (i < palette.length) return palette[i];
+        const hue = Math.round((i * 137.508 + 25) % 360);
+        const light = i % 2 === 0 ? 52 : 62;
+        return `hsl(${hue}, 68%, ${light}%)`;
+      };
       const sortedHoldings = [...data.activeHoldings].sort((a, b) => b.marketValue - a.marketValue);
       const legendEl = document.getElementById('allocation-legend');
       legendEl.innerHTML = sortedHoldings.map((h, i) => {
         const pct = data.totalMarketValue > 0 ? (h.marketValue / data.totalMarketValue) * 100 : 0;
-        const color = palette[i % palette.length];
+        const color = getSliceColor(i);
         return `
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
@@ -1818,8 +1824,9 @@
           labels: sortedHoldings.map(h => `${h.symbol} ${h.name}`),
           datasets: [{
             data: sortedHoldings.map(h => Math.round(h.marketValue)),
-            backgroundColor: sortedHoldings.map((_, i) => palette[i % palette.length]),
-            borderWidth: 0,
+            backgroundColor: sortedHoldings.map((_, i) => getSliceColor(i)),
+            borderColor: state.darkMode ? 'rgba(255, 255, 255, 0.85)' : '#FFFFFF',
+            borderWidth: 2,
             hoverOffset: 6
           }]
         },
