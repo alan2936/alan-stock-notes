@@ -202,12 +202,31 @@ module.exports = async function handler(req, res) {
     .filter(Boolean);
 
   try {
-    // 單檔日線 (供個股彈窗用)
+    // 單檔近 3 年日線 + 證交所本益比/殖利率/股價淨值比 (供個股均線與價值河流圖用)
     if (historySymbol) {
-      const r = await fetchTwHistory(historySymbol, '1y');
+      const [r, bwRes] = await Promise.all([
+        fetchTwHistory(historySymbol, '3y'),
+        fetch('https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL', {
+          headers: { Accept: 'application/json' }
+        }).then(resp => (resp.ok ? resp.json() : null)).catch(() => null)
+      ]);
       const series = r ? extractDailySeries(r) : [];
+      let valuation = null;
+      if (Array.isArray(bwRes)) {
+        const hit = bwRes.find(row => String(row.Code || '').trim() === historySymbol);
+        if (hit) {
+          const pe = Number(String(hit.PEratio || '').replace(/,/g, '').trim());
+          const pb = Number(String(hit.PBratio || '').replace(/,/g, '').trim());
+          const yld = Number(String(hit.DividendYield || '').replace(/,/g, '').trim());
+          valuation = {
+            pe: !Number.isNaN(pe) && pe > 0 ? pe : null,
+            pb: !Number.isNaN(pb) && pb > 0 ? pb : null,
+            yield: !Number.isNaN(yld) && yld > 0 ? yld : null
+          };
+        }
+      }
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-      return res.status(200).json({ symbol: historySymbol, series });
+      return res.status(200).json({ symbol: historySymbol, series, valuation });
     }
 
     // 批次真實歷史日線 (供真實報酬日曆、走勢分析、績效 vs 0050 含股利用)
