@@ -118,30 +118,30 @@
     <!-- Main Column -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Top Header -->
-      <header class="sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <button id="open-sidebar-btn" type="button" class="lg:hidden p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="開啟選單">
+      <header class="sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button id="open-sidebar-btn" type="button" class="lg:hidden p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0" aria-label="開啟選單">
             <i data-lucide="menu" class="w-5 h-5"></i>
           </button>
-          <div>
-            <h1 id="page-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">資產總覽</h1>
+          <div class="min-w-0">
+            <h1 id="page-title" class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white whitespace-nowrap truncate">資產總覽</h1>
             <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">台股紅漲綠跌語意 · 資料儲存於瀏覽器本機</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
-          <button id="privacy-toggle-btn" type="button" class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換隱藏金額模式">
+        <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <button id="privacy-toggle-btn" type="button" class="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換隱藏金額模式">
             <i data-lucide="eye" class="w-4 h-4"></i>
           </button>
-          <button id="refresh-prices-btn" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-medium transition-colors shadow-sm">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <button id="refresh-prices-btn" type="button" class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-medium whitespace-nowrap transition-colors shadow-sm">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 shrink-0"></i>
             <span id="refresh-prices-label">更新股價</span>
           </button>
-          <button id="theme-toggle-btn" type="button" class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換深淺色主題">
+          <button id="theme-toggle-btn" type="button" class="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換深淺色主題">
             <i data-lucide="moon" class="w-4 h-4"></i>
           </button>
-          <button id="cloud-auth-btn" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <i data-lucide="cloud" class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400"></i>
+          <button id="cloud-auth-btn" type="button" class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap transition-colors">
+            <i data-lucide="cloud" class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0"></i>
             <span id="cloud-auth-label">雲端同步</span>
           </button>
           <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
@@ -314,6 +314,38 @@
                 </thead>
                 <tbody id="annual-report-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- 每月領息分佈圖 & 被動收入目標進度條 -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">每月領息分佈 × 被動收入目標</h2>
+                <p class="text-xs text-slate-400 mt-0.5">檢視全年各月現金股利現金流，追蹤月領息財務目標進度</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <select id="div-chart-year" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold"></select>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-slate-500">月目標</span>
+                  <input id="monthly-div-goal-input" type="number" min="1000" step="1000" value="20000" class="w-24 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums font-semibold" />
+                  <span class="text-slate-500">元</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-3.5 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span id="div-goal-summary" class="font-medium text-slate-700 dark:text-slate-200">今年平均月領息：NT$ 0 / 目標 NT$ 20,000</span>
+                <span id="div-goal-pct" class="font-bold text-teal-600 dark:text-teal-400 tabular-nums">0.0%</span>
+              </div>
+              <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                <div id="div-goal-bar" class="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="relative h-52">
+              <canvas id="monthly-div-chart"></canvas>
             </div>
           </div>
 
@@ -828,7 +860,7 @@
                       <th class="py-2.5 px-2 text-right">股數</th>
                       <th class="py-2.5 px-2 text-right">價格</th>
                       <th class="py-2.5 px-2 text-right">金額</th>
-                      <th class="py-2.5 pl-2 text-right">刪除</th>
+                      <th class="py-2.5 pl-2 text-right">操作</th>
                     </tr>
                   </thead>
                   <tbody id="records-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
@@ -1076,7 +1108,8 @@
       filterTxType: 'ALL',
       supabaseUrl: DEFAULT_SUPABASE_URL,
       supabaseKey: DEFAULT_SUPABASE_ANON_KEY,
-      geminiApiKey: ''
+      geminiApiKey: '',
+      monthlyDivGoal: 20000
     };
 
     let allocationChart = null;
@@ -1090,6 +1123,10 @@
     let realHistoryMap = {};
     let trendRange = '1M';
     let twrVisible = { twii: true, s0050: true, s00981A: true };
+    let monthlyDivChart = null;
+    let selectedDivYear = String(new Date().getFullYear());
+    let isFetchingBatchHistory = false;
+    let isSyncingDividends = false;
     let calYear = new Date().getFullYear();
     let calMonth = new Date().getMonth();
 
@@ -1117,7 +1154,8 @@
           darkMode: state.darkMode,
           supabaseUrl: state.supabaseUrl,
           supabaseKey: state.supabaseKey,
-          geminiApiKey: state.geminiApiKey
+          geminiApiKey: state.geminiApiKey,
+          monthlyDivGoal: state.monthlyDivGoal
         }));
       } catch (e) {
         // Ignore storage error in restricted environments
@@ -1233,6 +1271,12 @@
       if (!supabaseClient || !currentUser) return;
       const { error } = await supabaseClient.from('transactions').delete().eq('id', txId);
       if (error) showToast('雲端刪除失敗：' + error.message);
+    }
+
+    async function clearAllCloudTransactions() {
+      if (!supabaseClient || !currentUser) return;
+      const { error } = await supabaseClient.from('transactions').delete().eq('user_id', currentUser.id);
+      if (error) showToast('清除雲端舊紀錄失敗：' + error.message);
     }
 
     async function uploadAllLocalToCloud() {
@@ -1494,7 +1538,7 @@
         }
       }
 
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = toLocalIso(new Date());
       let totalMarketValue = 0;
       let totalCostBasis = 0;
       let totalUnrealized = 0;
@@ -1636,6 +1680,78 @@
       }
     }
 
+    function renderMonthlyDividendChart() {
+      const yearSelect = document.getElementById('div-chart-year');
+      const goalInput = document.getElementById('monthly-div-goal-input');
+      if (!yearSelect || !goalInput) return;
+
+      const curYr = String(new Date().getFullYear());
+      const yearsSet = new Set([curYr]);
+      state.transactions.forEach(t => {
+        if (t.type === '股利' && t.date) yearsSet.add(t.date.slice(0, 4));
+      });
+      const years = Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+      if (!years.includes(selectedDivYear)) selectedDivYear = years[0];
+      yearSelect.innerHTML = years.map(y => `<option value="${y}" ${y === selectedDivYear ? 'selected' : ''}>${y} 年</option>`).join('');
+      goalInput.value = state.monthlyDivGoal || 20000;
+
+      const monthly = new Array(12).fill(0);
+      state.transactions.forEach(t => {
+        if (t.type === '股利' && t.date && t.date.startsWith(selectedDivYear)) {
+          const mIdx = Number(t.date.slice(5, 7)) - 1;
+          if (mIdx >= 0 && mIdx < 12) {
+            const gross = t.shares * t.price;
+            const nhi = gross >= 20000 ? Math.round(gross * 0.0211) : 0;
+            monthly[mIdx] += (gross - nhi);
+          }
+        }
+      });
+
+      const yearTotal = monthly.reduce((a, b) => a + b, 0);
+      const avgMonthly = yearTotal / 12;
+      const goal = Math.max(1, Number(state.monthlyDivGoal) || 20000);
+      const pct = Math.min(100, (avgMonthly / goal) * 100);
+
+      document.getElementById('div-goal-summary').textContent =
+        `${selectedDivYear} 年實領總息 ${fmtMoney(yearTotal)} · 平均月領 ${fmtMoney(avgMonthly)} / 目標 ${fmtMoney(goal)}`;
+      document.getElementById('div-goal-pct').textContent = `${pct.toFixed(1)}%`;
+      document.getElementById('div-goal-bar').style.width = `${pct.toFixed(1)}%`;
+
+      const ctx = document.getElementById('monthly-div-chart').getContext('2d');
+      if (monthlyDivChart) monthlyDivChart.destroy();
+      monthlyDivChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+          datasets: [{
+            label: '實領現金股利',
+            data: monthly.map(v => Math.round(v)),
+            backgroundColor: '#0D9488',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: item => state.privacyMode ? '實領股利: ****' : `實領股利: NT$ ${Number(item.raw).toLocaleString('zh-TW')}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: { callback: v => state.privacyMode ? '***' : (v >= 10000 ? `${(v/10000).toFixed(1)}萬` : v) },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
     function renderAssetsTab(data) {
       // KPIs
       const totalPnlEl = document.getElementById('kpi-total-pnl');
@@ -1717,6 +1833,7 @@
 
       renderMarketCards();
       renderBenchmarkChart(data);
+      renderMonthlyDividendChart();
       renderTrendAndCalendar(data);
 
       // Annual Report
@@ -2711,7 +2828,8 @@
             <td class="py-2.5 px-2 text-right">${t.shares.toLocaleString('zh-TW')}</td>
             <td class="py-2.5 px-2 text-right">${t.price}</td>
             <td class="py-2.5 px-2 text-right font-medium">${fmtMoney(amt)}</td>
-            <td class="py-2.5 pl-2 text-right">
+            <td class="py-2.5 pl-2 text-right whitespace-nowrap">
+              <button type="button" data-edit-id="${t.id}" class="edit-tx-btn p-1 rounded hover:bg-teal-50 dark:hover:bg-teal-950/50 text-slate-400 hover:text-teal-600 mr-1" title="編輯">✎</button>
               <button type="button" data-del-id="${t.id}" class="del-tx-btn p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600" title="刪除">×</button>
             </td>
           </tr>
@@ -2805,7 +2923,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       loadState();
       if (state.darkMode) document.documentElement.classList.add('dark');
-      document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('tx-date').value = toLocalIso(new Date());
       document.getElementById('setting-privacy-default').checked = state.privacyMode;
       document.getElementById('setting-sb-url').value = getSbCreds().url;
       document.getElementById('setting-sb-key').value = getSbCreds().key;
@@ -2920,9 +3038,12 @@
         }
       });
 
-      document.getElementById('ai-confirm-import-btn').addEventListener('click', () => {
+      document.getElementById('ai-confirm-import-btn').addEventListener('click', async () => {
         if (!aiParsedItems || aiParsedItems.length === 0) return;
-        if (document.getElementById('ai-replace-chk').checked) state.transactions = [];
+        if (document.getElementById('ai-replace-chk').checked) {
+          state.transactions = [];
+          await clearAllCloudTransactions();
+        }
         aiParsedItems.forEach((it, idx) => {
           const sym = String(it.symbol || '').trim();
           const tx = {
@@ -2930,7 +3051,7 @@
             symbol: sym,
             name: it.name || TW_STOCK_NAMES[sym] || sym,
             type: ['買入', '賣出', '股利', '配股'].includes(it.type) ? it.type : '買入',
-            date: it.date || new Date().toISOString().slice(0, 10),
+            date: it.date || toLocalIso(new Date()),
             shares: Number(it.shares) || 0,
             price: Number(it.price) || 0,
             note: it.note || '截圖AI辨識'
@@ -2998,6 +3119,16 @@
         renderTrendAndCalendar(analyzePortfolio());
       });
 
+      document.getElementById('div-chart-year').addEventListener('change', e => {
+        selectedDivYear = e.target.value;
+        renderMonthlyDividendChart();
+      });
+      document.getElementById('monthly-div-goal-input').addEventListener('change', e => {
+        state.monthlyDivGoal = Math.max(1000, Number(e.target.value) || 20000);
+        saveState();
+        renderMonthlyDividendChart();
+      });
+
       document.getElementById('cal-prev-btn').addEventListener('click', () => {
         calMonth--;
         if (calMonth < 0) { calMonth = 11; calYear--; }
@@ -3056,7 +3187,8 @@
 
 
     async function fetchBatchHistory() {
-      if (!window.location.protocol.startsWith('http')) return;
+      if (!window.location.protocol.startsWith('http') || isFetchingBatchHistory) return;
+      isFetchingBatchHistory = true;
       const syms = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
       if (syms.length === 0) return;
       try {
@@ -3069,11 +3201,14 @@
           renderBenchmarkChart(d);
           renderTrendAndCalendar(d);
         }
-      } catch (_) {}
+      } catch (_) {} finally {
+        isFetchingBatchHistory = false;
+      }
     }
 
     async function autoSyncDividends(silent = true) {
-      if (!window.location.protocol.startsWith('http')) return;
+      if (!window.location.protocol.startsWith('http') || isSyncingDividends) return;
+      isSyncingDividends = true;
       const btn = document.getElementById('sync-dividends-btn');
       const syms = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
       if (syms.length === 0) {
@@ -3126,6 +3261,7 @@
       } catch (_) {
         if (!silent) showToast('需於 Vercel 線上環境才能自動查詢除息紀錄');
       } finally {
+        isSyncingDividends = false;
         if (btn && !silent) btn.textContent = '自動補齊應領股利';
       }
     }
@@ -3563,12 +3699,44 @@
         if (!state.prices[symbol] && price > 0) state.prices[symbol] = price;
         saveState();
         e.target.reset();
-        document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('tx-date').value = toLocalIso(new Date());
         renderAll();
         showToast(`已新增 ${symbol} ${state.selectedTxType}紀錄`);
       });
 
       document.getElementById('records-tbody').addEventListener('click', e => {
+        const editBtn = e.target.closest('.edit-tx-btn');
+        if (editBtn) {
+          const tx = state.transactions.find(t => t.id === editBtn.dataset.editId);
+          if (!tx) return;
+          document.getElementById('action-modal-title').textContent = `編輯 ${tx.symbol} ${tx.name || ''} 紀錄`;
+          document.getElementById('action-modal-body').innerHTML = `
+            <div class="grid grid-cols-2 gap-2.5">
+              <div><label class="block text-xs text-slate-500 mb-1">類型</label><select id="edit-tx-type" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"><option value="買入" ${tx.type==='買入'?'selected':''}>買入</option><option value="賣出" ${tx.type==='賣出'?'selected':''}>賣出</option><option value="股利" ${tx.type==='股利'?'selected':''}>股利</option><option value="配股" ${tx.type==='配股'?'selected':''}>配股</option></select></div>
+              <div><label class="block text-xs text-slate-500 mb-1">日期</label><input id="edit-tx-date" type="date" value="${tx.date}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" /></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div><label class="block text-xs text-slate-500 mb-1">股數</label><input id="edit-tx-shares" type="number" step="1" value="${tx.shares}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums" /></div>
+              <div><label class="block text-xs text-slate-500 mb-1">單價／每股股利</label><input id="edit-tx-price" type="number" step="0.0001" value="${tx.price}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums" /></div>
+            </div>
+            <div><label class="block text-xs text-slate-500 mb-1">備註</label><input id="edit-tx-note" type="text" value="${(tx.note || '').replace(/"/g, '&quot;')}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" /></div>
+            <button id="save-edit-tx-btn" type="button" class="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold">儲存修改</button>
+          `;
+          openModal('action-modal');
+          document.getElementById('save-edit-tx-btn').onclick = () => {
+            tx.type = document.getElementById('edit-tx-type').value;
+            tx.date = document.getElementById('edit-tx-date').value;
+            tx.shares = Number(document.getElementById('edit-tx-shares').value) || 0;
+            tx.price = Number(document.getElementById('edit-tx-price').value) || 0;
+            tx.note = document.getElementById('edit-tx-note').value.trim();
+            pushTransactionToCloud(tx);
+            saveState();
+            closeModal('action-modal');
+            renderAll();
+            showToast('已更新交易紀錄並同步至雲端');
+          };
+          return;
+        }
         const btn = e.target.closest('.del-tx-btn');
         if (btn) {
           const delId = btn.dataset.delId;
@@ -3641,7 +3809,7 @@
       });
 
       // 匯入切換與庫存成本匯入功能
-      document.getElementById('holdings-import-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('holdings-import-date').value = toLocalIso(new Date());
       document.querySelectorAll('.import-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const t = btn.dataset.importTab;
@@ -3659,7 +3827,7 @@
         });
       });
 
-      function applyImportedHoldings(items) {
+      async function applyImportedHoldings(items) {
         if (!items || items.length === 0) {
           showToast('未偵測到有效的庫存資料（請確認代碼、股數、均價）');
           return;
@@ -3667,8 +3835,9 @@
         const replaceMode = document.getElementById('holdings-replace-chk').checked;
         if (replaceMode) {
           state.transactions = [];
+          await clearAllCloudTransactions();
         }
-        const baseDate = document.getElementById('holdings-import-date').value || new Date().toISOString().slice(0, 10);
+        const baseDate = document.getElementById('holdings-import-date').value || toLocalIso(new Date());
         items.forEach((it, idx) => {
           const tx = {
             id: `hold_${Date.now()}_${idx}`,
