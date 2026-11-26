@@ -997,6 +997,13 @@
         <button type="button" data-close-modal="stock-chart-modal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <div class="p-5 overflow-y-auto space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
+            <button type="button" data-scm-tab="ma" class="scm-tab-btn px-3 py-1.5 rounded-md bg-teal-600 text-white font-semibold shadow-sm">日線均線</button>
+            <button type="button" data-scm-tab="river" class="scm-tab-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium">價值河流圖</button>
+          </div>
+          <div id="scm-zone-badge" class="hidden px-2.5 py-1 rounded-full text-xs font-bold"></div>
+        </div>
         <div id="scm-ma-badges" class="flex flex-wrap gap-2 text-xs tabular-nums"></div>
         <div class="relative h-72">
           <canvas id="stock-kline-chart"></canvas>
@@ -1120,6 +1127,8 @@
     let twrCompareChart = null;
     let dripChart = null;
     let stockKlineChart = null;
+    let scmActiveTab = 'ma';
+    let scmCurrentContext = null;
     let realHistoryMap = {};
     let trendRange = '1M';
     let twrVisible = { twii: true, s0050: true, s00981A: true };
@@ -2592,116 +2601,238 @@
       });
     }
 
+    function renderScmActiveChart() {
+      if (!scmCurrentContext) return;
+      const { sym, name, fullSeries, valuation, isReal, userTxs } = scmCurrentContext;
+      const zoneBadge = document.getElementById('scm-zone-badge');
+
+      document.querySelectorAll('.scm-tab-btn').forEach(b => {
+        b.className = b.dataset.scmTab === scmActiveTab
+          ? 'scm-tab-btn px-3 py-1.5 rounded-md bg-teal-600 text-white font-semibold shadow-sm'
+          : 'scm-tab-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium';
+      });
+
+      const closes = fullSeries.map(d => d.close);
+      const ctx = document.getElementById('stock-kline-chart').getContext('2d');
+      if (stockKlineChart) stockKlineChart.destroy();
+
+      if (scmActiveTab === 'ma') {
+        zoneBadge.classList.add('hidden');
+        const ma5All = calcSmaSeries(closes, 5);
+        const ma20All = calcSmaSeries(closes, 20);
+        const ma60All = calcSmaSeries(closes, 60);
+
+        const viewLen = Math.min(126, fullSeries.length);
+        const offset = fullSeries.length - viewLen;
+        const viewSeries = fullSeries.slice(offset);
+        const viewCloses = closes.slice(offset);
+        const ma5 = ma5All.slice(offset);
+        const ma20 = ma20All.slice(offset);
+        const ma60 = ma60All.slice(offset);
+
+        const lastClose = viewCloses[viewCloses.length - 1];
+        document.getElementById('scm-subtitle').textContent = isReal
+          ? '近半年真實日收盤價 · 含 MA5 / MA20 / MA60 與您的買賣點標記'
+          : '離線示範走勢（部署 Vercel 後自動顯示真實歷史日線與均線）';
+
+        document.getElementById('scm-ma-badges').innerHTML = `
+          <span class="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 font-semibold">收盤 ${lastClose}</span>
+          <span class="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold">MA5 ${ma5[ma5.length - 1] ?? '--'}</span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold">MA20 ${ma20[ma20.length - 1] ?? '--'}</span>
+          <span class="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold">MA60 ${ma60[ma60.length - 1] ?? '--'}</span>
+        `;
+
+        const buyPoints = new Array(viewSeries.length).fill(null);
+        const sellPoints = new Array(viewSeries.length).fill(null);
+        const pointNotes = {};
+        for (const tx of userTxs) {
+          const idx = viewSeries.findIndex(d => d.date >= tx.date);
+          if (idx >= 0 && tx.date >= viewSeries[0].date) {
+            if (tx.type === '買入') buyPoints[idx] = tx.price;
+            else sellPoints[idx] = tx.price;
+            pointNotes[idx] = `${tx.date} ${tx.type} ${tx.shares.toLocaleString('zh-TW')}股 @ ${tx.price}`;
+          }
+        }
+
+        stockKlineChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: viewSeries.map(d => d.date.slice(5)),
+            datasets: [
+              { label: '收盤價', data: viewCloses, borderColor: '#0D9488', borderWidth: 2, pointRadius: 0, tension: 0.15 },
+              { label: 'MA5', data: ma5, borderColor: '#F59E0B', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
+              { label: 'MA20', data: ma20, borderColor: '#3B82F6', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
+              { label: 'MA60', data: ma60, borderColor: '#8B5CF6', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
+              { label: '我的買入點', data: buyPoints, borderColor: '#DC2626', backgroundColor: '#EF4444', pointStyle: 'triangle', pointRadius: 7, pointHoverRadius: 9, showLine: false },
+              { label: '我的賣出點', data: sellPoints, borderColor: '#059669', backgroundColor: '#10B981', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+              tooltip: {
+                callbacks: {
+                  title: items => viewSeries[items[0].dataIndex]?.date || '',
+                  afterBody: items => {
+                    const note = pointNotes[items[0].dataIndex];
+                    return note ? ['★ 交易紀錄: ' + note] : [];
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+              y: { grid: { color: 'rgba(148,163,184,0.15)' } }
+            }
+          }
+        });
+      } else {
+        // 價值河流圖：個股用本益比(PE)河流圖，ETF/無PE標的用年線位階河流圖
+        const step = fullSeries.length > 90 ? Math.max(1, Math.floor(fullSeries.length / 75)) : 1;
+        const sampled = fullSeries.filter((_, i) => i % step === 0 || i === fullSeries.length - 1);
+        const sCloses = sampled.map(d => d.close);
+        const lastClose = sCloses[sCloses.length - 1];
+
+        // 計算平滑長期趨勢基準線（作為河流中軸）
+        const win = Math.min(20, Math.max(5, Math.floor(sCloses.length / 4)));
+        const midLine = sCloses.map((_, i) => {
+          const st = Math.max(0, i - win + 1);
+          const sub = sCloses.slice(st, i + 1);
+          return Number((sub.reduce((a, b) => a + b, 0) / sub.length).toFixed(2));
+        });
+
+        const hasPe = !isEtf(sym) && valuation && valuation.pe > 0;
+        const peNow = hasPe ? valuation.pe : null;
+        const epsNow = hasPe ? Number((lastClose / peNow).toFixed(2)) : null;
+        const lastMid = midLine[midLine.length - 1] || lastClose;
+
+        // 6 條邊界線構成 5 層河流帶 (便宜 -> 偏低 -> 合理 -> 偏高 -> 昂貴)
+        const mults = [0.76, 0.88, 1.00, 1.12, 1.24, 1.38];
+        const bandLabels = hasPe
+          ? mults.map(m => `${(peNow * (lastMid / lastClose) * m).toFixed(1)}x PE`)
+          : ['-24% 便宜', '-12% 偏低', '年線基準', '+12% 偏高', '+24% 過熱', '+38% 昂貴'];
+
+        const ratioNow = lastClose / Math.max(1e-6, lastMid);
+        let zoneText = '合理區間', zoneCls = 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300';
+        if (ratioNow < 0.88) { zoneText = '便宜區間'; zoneCls = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'; }
+        else if (ratioNow < 1.00) { zoneText = '合理偏低'; zoneCls = 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300'; }
+        else if (ratioNow < 1.12) { zoneText = '合理偏高'; zoneCls = 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'; }
+        else if (ratioNow < 1.24) { zoneText = '偏高區間'; zoneCls = 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'; }
+        else { zoneText = '昂貴區間'; zoneCls = 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'; }
+
+        zoneBadge.textContent = `目前位階：${zoneText}`;
+        zoneBadge.className = `px-2.5 py-1 rounded-full text-xs font-bold ${zoneCls}`;
+        zoneBadge.classList.remove('hidden');
+
+        document.getElementById('scm-subtitle').textContent = hasPe
+          ? '本益比（PE）價值河流圖 · 依證交所最新本益比與近 3 年股價趨勢繪製'
+          : 'ETF 年線位階河流圖 · 依近 3 年股價趨勢乖離區間判斷相對便宜／昂貴位階';
+
+        const badges = [`<span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold">現價 ${lastClose}</span>`];
+        if (hasPe) {
+          badges.push(`<span class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold">本益比 ${peNow}x</span>`);
+          badges.push(`<span class="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 font-semibold">推算近四季 EPS ${epsNow}</span>`);
+        }
+        if (valuation?.pb) badges.push(`<span class="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold">淨值比 PB ${valuation.pb}</span>`);
+        if (valuation?.yield) badges.push(`<span class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">殖利率 ${valuation.yield}%</span>`);
+        document.getElementById('scm-ma-badges').innerHTML = badges.join('');
+
+        const bandFills = [
+          'rgba(16, 185, 129, 0.22)',  // 便宜 綠
+          'rgba(20, 184, 166, 0.20)',  // 偏低 青
+          'rgba(250, 204, 21, 0.22)',  // 合理 黃
+          'rgba(249, 115, 22, 0.22)',  // 偏高 橘
+          'rgba(239, 68, 68, 0.22)'    // 昂貴 紅
+        ];
+        const bandStrokes = ['#10B981', '#14B8A6', '#EAB308', '#F97316', '#EF4444', '#DC2626'];
+
+        const riverDatasets = mults.map((m, idx) => ({
+          label: bandLabels[idx],
+          data: midLine.map(v => Number((v * m).toFixed(2))),
+          borderColor: bandStrokes[idx],
+          borderWidth: 1,
+          borderDash: idx === 2 ? [4, 3] : [],
+          pointRadius: 0,
+          tension: 0.3,
+          fill: idx === 0 ? false : '-1',
+          backgroundColor: idx === 0 ? 'transparent' : bandFills[idx - 1]
+        }));
+
+        riverDatasets.push({
+          label: `${sym} 股價`,
+          data: sCloses,
+          borderColor: state.darkMode ? '#FFFFFF' : '#0F172A',
+          borderWidth: 2.4,
+          pointRadius: 0,
+          tension: 0.15,
+          fill: false
+        });
+
+        stockKlineChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: sampled.map(d => d.date.slice(2, 7)),
+            datasets: riverDatasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+              tooltip: {
+                callbacks: {
+                  title: items => sampled[items[0].dataIndex]?.date || ''
+                }
+              }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } },
+              y: { grid: { color: 'rgba(148,163,184,0.12)' } }
+            }
+          }
+        });
+      }
+    }
+
     async function openStockChartModal(sym) {
       const data = analyzePortfolio();
       const stock = data.stocks.find(x => x.symbol === sym);
       const name = stock?.name || TW_STOCK_NAMES[sym] || sym;
       const curPrice = state.prices[sym] || stock?.curPrice || 100;
 
-      document.getElementById('scm-title').textContent = `${sym} ${name} — 近半年日線走勢與均線`;
-      document.getElementById('scm-subtitle').textContent = '載入歷史收盤資料中...';
+      scmActiveTab = 'ma';
+      document.getElementById('scm-title').textContent = `${sym} ${name} — 走勢分析與價值河流圖`;
+      document.getElementById('scm-subtitle').textContent = '載入近 3 年歷史收盤與估值資料中...';
       document.getElementById('scm-ma-badges').innerHTML = '';
+      document.getElementById('scm-zone-badge').classList.add('hidden');
       openModal('stock-chart-modal');
 
       let fullSeries = [];
+      let valuation = null;
       if (window.location.protocol.startsWith('http')) {
         try {
           const res = await fetch('/api/market?historySymbol=' + encodeURIComponent(sym));
           if (res.ok) {
             const json = await res.json();
-            if (Array.isArray(json.series) && json.series.length > 20) {
-              fullSeries = json.series;
-            }
+            if (Array.isArray(json.series) && json.series.length > 20) fullSeries = json.series;
+            if (json.valuation) valuation = json.valuation;
           }
         } catch (_) {}
       }
 
       const isReal = fullSeries.length > 0;
-      if (!isReal) fullSeries = buildFallbackHistory(sym, curPrice);
-
-      const closes = fullSeries.map(d => d.close);
-      const ma5All = calcSmaSeries(closes, 5);
-      const ma20All = calcSmaSeries(closes, 20);
-      const ma60All = calcSmaSeries(closes, 60);
-
-      // Slice recent ~126 trading days (approx 6 months)
-      const viewLen = Math.min(126, fullSeries.length);
-      const offset = fullSeries.length - viewLen;
-      const viewSeries = fullSeries.slice(offset);
-      const viewCloses = closes.slice(offset);
-      const ma5 = ma5All.slice(offset);
-      const ma20 = ma20All.slice(offset);
-      const ma60 = ma60All.slice(offset);
-
-      const lastClose = viewCloses[viewCloses.length - 1];
-      const lastMa5 = ma5[ma5.length - 1];
-      const lastMa20 = ma20[ma20.length - 1];
-      const lastMa60 = ma60[ma60.length - 1];
-
-      document.getElementById('scm-subtitle').textContent = isReal
-        ? '真實歷史日收盤價 · 含 MA5 / MA20 / MA60 與您的買賣點標記'
-        : '離線示範走勢（部署 Vercel 後自動顯示真實歷史日線與均線）';
-
-      document.getElementById('scm-ma-badges').innerHTML = `
-        <span class="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 font-semibold">收盤 ${lastClose}</span>
-        <span class="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold">MA5 ${lastMa5 ?? '--'}</span>
-        <span class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold">MA20 ${lastMa20 ?? '--'}</span>
-        <span class="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold">MA60 ${lastMa60 ?? '--'}</span>
-      `;
-
-      // Map user buy/sell transactions onto nearest date in viewSeries
-      const userTxs = (stock?.txList || []).filter(t => t.type === '買入' || t.type === '賣出');
-      const buyPoints = new Array(viewSeries.length).fill(null);
-      const sellPoints = new Array(viewSeries.length).fill(null);
-      const pointNotes = {};
-
-      for (const tx of userTxs) {
-        let idx = viewSeries.findIndex(d => d.date >= tx.date);
-        if (idx < 0 && tx.date <= viewSeries[viewSeries.length - 1].date) continue;
-        if (idx >= 0 && tx.date >= viewSeries[0].date) {
-          if (tx.type === '買入') buyPoints[idx] = tx.price;
-          else sellPoints[idx] = tx.price;
-          pointNotes[idx] = `${tx.date} ${tx.type} ${tx.shares.toLocaleString('zh-TW')}股 @ ${tx.price}`;
-        }
+      if (!isReal) {
+        fullSeries = buildFallbackHistory(sym, curPrice);
+        if (!isEtf(sym)) valuation = { pe: 22.5, pb: 4.8, yield: 1.8 };
       }
 
-      const ctx = document.getElementById('stock-kline-chart').getContext('2d');
-      if (stockKlineChart) stockKlineChart.destroy();
-      stockKlineChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: viewSeries.map(d => d.date.slice(5)),
-          datasets: [
-            { label: '收盤價', data: viewCloses, borderColor: '#0D9488', borderWidth: 2, pointRadius: 0, tension: 0.15 },
-            { label: 'MA5', data: ma5, borderColor: '#F59E0B', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
-            { label: 'MA20', data: ma20, borderColor: '#3B82F6', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
-            { label: 'MA60', data: ma60, borderColor: '#8B5CF6', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
-            { label: '我的買入點', data: buyPoints, borderColor: '#DC2626', backgroundColor: '#EF4444', pointStyle: 'triangle', pointRadius: 7, pointHoverRadius: 9, showLine: false },
-            { label: '我的賣出點', data: sellPoints, borderColor: '#059669', backgroundColor: '#10B981', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-            tooltip: {
-              callbacks: {
-                title: items => viewSeries[items[0].dataIndex]?.date || '',
-                afterBody: items => {
-                  const note = pointNotes[items[0].dataIndex];
-                  return note ? ['★ 交易紀錄: ' + note] : [];
-                }
-              }
-            }
-          },
-          scales: {
-            x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-            y: { grid: { color: 'rgba(148,163,184,0.15)' } }
-          }
-        }
-      });
+      const userTxs = (stock?.txList || []).filter(t => t.type === '買入' || t.type === '賣出');
+      scmCurrentContext = { sym, name, fullSeries, valuation, isReal, userTxs };
+      renderScmActiveChart();
 
       document.getElementById('scm-trades-summary').innerHTML = userTxs.length > 0
         ? `<div class="font-semibold text-slate-700 dark:text-slate-200 mb-1">此標的歷史買賣紀錄（${userTxs.length} 筆）：</div>` +
@@ -3134,6 +3265,13 @@
         state.monthlyDivGoal = Math.max(1000, Number(e.target.value) || 20000);
         saveState();
         renderMonthlyDividendChart();
+      });
+
+      document.querySelectorAll('.scm-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          scmActiveTab = btn.dataset.scmTab;
+          renderScmActiveChart();
+        });
       });
 
       document.getElementById('cal-prev-btn').addEventListener('click', () => {
