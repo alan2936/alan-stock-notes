@@ -25,7 +25,7 @@ async function fetchTwseWithFallback(baseUrl, selectType, dateParam = 'date') {
     d.setDate(d.getDate() - offset);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
     const ymd = formatYmd(d);
-    const url = `${baseUrl}?response=json&${dateParam}=${ymd}${selectType ? `&selectType=${selectType}` : ''}`;
+    const url = `${baseUrl}?response=json&${dateParam}=${ymd}${selectType ? `&selectType=${selectType}` : '&type=day'}`;
     try {
       const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
       if (!r.ok) continue;
@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
     if (bfiRes && Array.isArray(bfiRes.json.data)) {
       let foreignAmt = 0, trustAmt = 0, dealerAmt = 0, totalAmt = 0;
       for (const row of bfiRes.json.data) {
-        const label = String(row[0] || '');
+        const label = String(row[0] || '').replace(/\s+/g, '');
         const diffYi = toNum(row[3]) / 1e8;
         if (label.includes('外資')) foreignAmt += diffYi;
         else if (label.includes('投信')) trustAmt += diffYi;
