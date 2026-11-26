@@ -14,10 +14,102 @@ const MARKET_CARDS = {
   futures: [
     { symbol: 'YM=F', name: '小道瓊' },
     { symbol: 'ES=F', name: '小S&P500' },
-    { symbol: 'NQ=F', name: '小那斯達克' },
-    { symbol: 'TSM', name: '台積電ADR(夜盤指標)' }
+    { symbol: 'NQ=F', name: '小那斯達克' }
   ]
 };
+
+
+async function fetchTaifexNightCard() {
+  const quoteUrl = 'https://mis.taifex.com.tw/futures/api/getQuoteList';
+  const chartUrl = 'https://mis.taifex.com.tw/futures/api/getChartData1Min';
+  const headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'Mozilla/5.0',
+    'Origin': 'https://mis.taifex.com.tw',
+    'Referer': 'https://mis.taifex.com.tw/futures/'
+  };
+
+  // 先查夜盤 (MarketType: "1")，若非夜盤時段或尚無成交則自動查日盤 (MarketType: "0")
+  for (const marketType of ['1', '0']) {
+    try {
+      const r = await fetch(quoteUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          MarketType: marketType,
+          SymbolType: 'F',
+          KindID: '1',
+          CID: 'TXF',
+          ExpireMonth: '',
+          RowSize: '全部',
+          PageNo: '',
+          SortColumn: '',
+          AscDesc: 'A'
+        })
+      });
+      if (!r.ok) continue;
+      const json = await r.json();
+      const list = json?.RtData?.QuoteList || [];
+      // 挑選近月台指期合約（排除現貨 TXF-S 及價差單 "/"）
+      const near = list.find(q =>
+        q.SymbolID &&
+        !String(q.SymbolID).includes('/') &&
+        !String(q.SymbolID).endsWith('-S') &&
+        Number(q.CLastPrice) > 0
+      );
+      if (!near) continue;
+
+      const price = Number(near.CLastPrice) || 0;
+      const prevClose = Number(near.CRefPrice) || price;
+      const change = Number(near.CDiff) || (price - prevClose);
+      const pct = Number(near.CDiffRate) || (prevClose > 0 ? (change / prevClose) * 100 : 0);
+
+      // 嘗試抓取 1 分鐘分時走勢點繪製迷你走勢圖
+      let sparkline = [];
+      try {
+        const cr = await fetch(chartUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ SymbolID: near.SymbolID })
+        });
+        if (cr.ok) {
+          const cjson = await cr.json();
+          const pts = cjson?.RtData?.QuoteList || cjson?.RtData?.ChartData || [];
+          if (Array.isArray(pts) && pts.length > 1) {
+            const rawPrices = pts
+              .map(p => Number(Array.isArray(p) ? p[1] : (p.CLastPrice || p.Price || p.Close)))
+              .filter(v => !Number.isNaN(v) && v > 0);
+            if (rawPrices.length > 36) {
+              const step = rawPrices.length / 36;
+              for (let i = 0; i < 36; i++) sparkline.push(rawPrices[Math.floor(i * step)]);
+              sparkline[sparkline.length - 1] = price;
+            } else {
+              sparkline = rawPrices;
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (sparkline.length < 2) {
+        const openP = Number(near.COpenPrice) || prevClose;
+        const highP = Number(near.CHighPrice) || Math.max(openP, price);
+        const lowP = Number(near.CLowPrice) || Math.min(openP, price);
+        sparkline = [prevClose, openP, highP, lowP, price];
+      }
+
+      return {
+        symbol: near.SymbolID,
+        name: marketType === '1' ? '台指期盤後' : '台指期(日盤)',
+        price: Number(price.toFixed(0)),
+        prevClose: Number(prevClose.toFixed(0)),
+        change: Number(change.toFixed(0)),
+        pct: Number(pct.toFixed(2)),
+        sparkline
+      };
+    } catch (_) {}
+  }
+  return null;
+}
 
 async function fetchChart(symbol, range = '1d', interval = '15m') {
   const url = `${YF_BASE}${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
@@ -141,8 +233,12 @@ module.exports = async function handler(req, res) {
       allCardMeta.map(m => fetchChart(m.symbol, '1d', '15m').catch(() => null))
     );
 
+    const taifexCard = await fetchTaifexNightCard();
     const indices = MARKET_CARDS.indices.map((m, i) => parseIntradayCard(m, cardResults[i]));
-    const futures = MARKET_CARDS.futures.map((m, i) => parseIntradayCard(m, cardResults[MARKET_CARDS.indices.length + i]));
+    const futures = [
+      ...MARKET_CARDS.futures.map((m, i) => parseIntradayCard(m, cardResults[MARKET_CARDS.indices.length + i])),
+      taifexCard || { symbol: 'TXF-M', name: '台指期盤後', price: 0, prevClose: 0, change: 0, pct: 0, sparkline: [] }
+    ];
 
     const perfTargets = ['^TWII', '^GSPC', ...rawSymbols];
     const perfResults = await Promise.all(
