@@ -91,7 +91,7 @@ module.exports = async function handler(req, res) {
       const idxName = fields.findIndex(f => f.includes('證券名稱'));
       const idxForeign = fields.findIndex(f => f.includes('外陸資買賣超股數(不含外資自營商)'));
       const idxTrust = fields.findIndex(f => f.includes('投信買賣超股數'));
-      const idxDealer = fields.findIndex(f => f.includes('自營商買賣超股數'));
+      const idxDealer = fields.findIndex(f => f.includes('自營商買賣超股數') && !f.includes('外資'));
       const idxTotal = fields.findIndex(f => f.includes('三大法人買賣超股數'));
 
       for (const row of t86Res.json.data) {
