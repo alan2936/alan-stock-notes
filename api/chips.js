@@ -10,21 +10,21 @@ function toNum(v) {
   return Number.isNaN(n) ? 0 : n;
 }
 
-function formatYmd(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+function formatTaipeiYmd(d) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${y}${m}${day}`;
 }
 
 async function fetchTwseWithFallback(baseUrl, selectType, dateParam = 'date') {
-  // 盤後資料通常 15:00-16:30 後公布，若當日尚未公布或逢假日，最多往回推 5 天找最近交易日
-  const baseDate = new Date();
+  // 使用台灣時區 (UTC+8) 推算最近交易日，避免 Vercel UTC 伺服器跨日誤差
+  const taipeiNow = new Date(Date.now() + 8 * 3600 * 1000);
   for (let offset = 0; offset <= 5; offset++) {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() - offset);
-    if (d.getDay() === 0 || d.getDay() === 6) continue;
-    const ymd = formatYmd(d);
+    const d = new Date(taipeiNow.getTime() - offset * 86400000);
+    const dow = d.getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const ymd = formatTaipeiYmd(d);
     const url = `${baseUrl}?response=json&${dateParam}=${ymd}${selectType ? `&selectType=${selectType}` : '&type=day'}`;
     try {
       const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
