@@ -2,6 +2,7 @@
 const TWSE_T86 = 'https://www.twse.com.tw/rwd/zh/fund/T86';
 const TWSE_MARGN = 'https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN';
 const TPEX_3INSTI = 'https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading';
+const TWSE_BFI82U = 'https://www.twse.com.tw/rwd/zh/fund/BFI82U';
 
 function toNum(v) {
   if (v === null || v === undefined) return 0;
@@ -16,7 +17,7 @@ function formatYmd(d) {
   return `${y}${m}${day}`;
 }
 
-async function fetchTwseWithFallback(baseUrl, selectType) {
+async function fetchTwseWithFallback(baseUrl, selectType, dateParam = 'date') {
   // 盤後資料通常 15:00-16:30 後公布，若當日尚未公布或逢假日，最多往回推 5 天找最近交易日
   const baseDate = new Date();
   for (let offset = 0; offset <= 5; offset++) {
@@ -24,7 +25,7 @@ async function fetchTwseWithFallback(baseUrl, selectType) {
     d.setDate(d.getDate() - offset);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
     const ymd = formatYmd(d);
-    const url = `${baseUrl}?response=json&date=${ymd}&selectType=${selectType}`;
+    const url = `${baseUrl}?response=json&${dateParam}=${ymd}${selectType ? `&selectType=${selectType}` : ''}`;
     try {
       const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
       if (!r.ok) continue;
@@ -53,11 +54,34 @@ module.exports = async function handler(req, res) {
   let dataDate = '';
 
   try {
-    const [t86Res, margnRes, tpexRes] = await Promise.all([
+    const [t86Res, margnRes, bfiRes, tpexRes] = await Promise.all([
       fetchTwseWithFallback(TWSE_T86, 'ALLBUT0999'),
       fetchTwseWithFallback(TWSE_MARGN, 'ALL'),
+      fetchTwseWithFallback(TWSE_BFI82U, '', 'dayDate'),
       fetch(TPEX_3INSTI, { headers: { Accept: 'application/json' } }).then(r => (r.ok ? r.json() : null)).catch(() => null)
     ]);
+
+    // 0. 解析全市場三大法人買賣超金額 (BFI82U，單位：億元)
+    let marketSummary = null;
+    if (bfiRes && Array.isArray(bfiRes.json.data)) {
+      let foreignAmt = 0, trustAmt = 0, dealerAmt = 0, totalAmt = 0;
+      for (const row of bfiRes.json.data) {
+        const label = String(row[0] || '');
+        const diffYi = toNum(row[3]) / 1e8;
+        if (label.includes('外資')) foreignAmt += diffYi;
+        else if (label.includes('投信')) trustAmt += diffYi;
+        else if (label.includes('自營商')) dealerAmt += diffYi;
+        else if (label.includes('合計')) totalAmt = diffYi;
+      }
+      if (!totalAmt) totalAmt = foreignAmt + trustAmt + dealerAmt;
+      marketSummary = {
+        date: bfiRes.ymd,
+        foreign: Number(foreignAmt.toFixed(2)),
+        trust: Number(trustAmt.toFixed(2)),
+        dealer: Number(dealerAmt.toFixed(2)),
+        total: Number(totalAmt.toFixed(2))
+      };
+    }
 
     // 1. 解析上市三大法人 T86 (單位為股 -> 除以 1000 轉成張)
     if (t86Res && Array.isArray(t86Res.json.data)) {
@@ -150,6 +174,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
     return res.status(200).json({
       chips,
+      marketSummary,
       dataDate,
       count: Object.keys(chips).length
     });
