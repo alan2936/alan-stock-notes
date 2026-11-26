@@ -252,6 +252,7 @@
                   <button type="button" data-range="1M" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">1月</button>
                   <button type="button" data-range="3M" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">3月</button>
                   <button type="button" data-range="6M" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">6月</button>
+                  <button type="button" data-range="YTD" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">年初至今</button>
                   <button type="button" data-range="1Y" class="range-btn px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm">1年</button>
                   <button type="button" data-range="3Y" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">3年</button>
                   <button type="button" data-range="ALL" class="range-btn px-2.5 py-1 rounded-md text-slate-600 dark:text-slate-300">全期</button>
@@ -1061,6 +1062,7 @@
     let trendAnalysisChart = null;
     let dripChart = null;
     let stockKlineChart = null;
+    let realHistoryMap = {};
     let trendMode = 'daily';
     let trendRange = 'ALL';
     let trendBasis = 'profit';
@@ -1163,6 +1165,8 @@
         saveState();
         renderAll();
         showToast('已從雲端同步 ' + data.length + ' 筆交易紀錄');
+        fetchBatchHistory();
+        autoSyncDividends(true);
       }
     }
 
@@ -1713,22 +1717,97 @@
       return `${sign}${Math.round(abs).toLocaleString('zh-TW')}`;
     }
 
-    // Build deterministic trading-day P&L series anchored to current portfolio P&L
+    // 優先使用真實歷史日收盤價計算每日真實損益與報酬率
     function buildDailyPnlSeries(data) {
       const sortedTx = [...state.transactions].sort((a, b) => a.date.localeCompare(b.date));
+      const syms = Array.from(new Set(sortedTx.map(t => t.symbol.trim()).filter(Boolean)));
+      const hasReal = syms.some(sym => Array.isArray(realHistoryMap[sym]) && realHistoryMap[sym].length > 5);
+
+      if (hasReal) {
+        // 收集所有真實交易日聯集
+        const dateSet = new Set();
+        const priceLookup = {};
+        for (const sym of syms) {
+          priceLookup[sym] = {};
+          const arr = realHistoryMap[sym] || [];
+          arr.forEach(pt => {
+            dateSet.add(pt.date);
+            priceLookup[sym][pt.date] = pt.close;
+          });
+        }
+        // 也把大盤比較標的的日期納入
+        const cmpArr = realHistoryMap[state.compareSymbol || '0050'] || [];
+        const cmpLookup = {};
+        cmpArr.forEach(pt => { cmpLookup[pt.date] = pt.adjclose || pt.close; });
+
+        const firstTxDate = sortedTx[0]?.date || '2024-01-01';
+        const allDates = Array.from(dateSet).filter(d => d >= firstTxDate).sort();
+        if (allDates.length > 1) {
+          const lastClose = {};
+          let prevTotalMv = 0;
+          let runningCum = 0;
+          let prevCmp = null;
+          const series = [];
+
+          for (let i = 0; i < allDates.length; i++) {
+            const d = allDates[i];
+            // 計算當日收盤時各股持有股數
+            const held = {};
+            for (const tx of sortedTx) {
+              if (tx.date > d) break;
+              if (!held[tx.symbol]) held[tx.symbol] = 0;
+              if (tx.type === '買入' || tx.type === '配股') held[tx.symbol] += tx.shares;
+              else if (tx.type === '賣出') held[tx.symbol] = Math.max(0, held[tx.symbol] - tx.shares);
+            }
+
+            let dayMv = 0;
+            let dayPnl = 0;
+            for (const sym of syms) {
+              const c = priceLookup[sym][d] ?? lastClose[sym];
+              if (c > 0) {
+                const sh = held[sym] || 0;
+                if (lastClose[sym] > 0 && sh > 0) {
+                  dayPnl += (c - lastClose[sym]) * sh;
+                }
+                lastClose[sym] = c;
+                dayMv += c * sh;
+              }
+            }
+
+            const cmpVal = cmpLookup[d] ?? prevCmp;
+            const cmpPct = (prevCmp > 0 && cmpVal > 0) ? ((cmpVal - prevCmp) / prevCmp) : 0;
+            if (cmpVal > 0) prevCmp = cmpVal;
+
+            if (i > 0 && dayMv > 0) {
+              const baseMv = prevTotalMv > 0 ? prevTotalMv : dayMv;
+              const pct = (dayPnl / baseMv) * 100;
+              const benchDaily = Math.round(baseMv * cmpPct);
+              runningCum += Math.round(dayPnl);
+              series.push({
+                date: d,
+                daily: Math.round(dayPnl),
+                cum: runningCum,
+                pct: Number(pct.toFixed(2)),
+                mv: Math.round(dayMv),
+                benchDiff: Math.round(dayPnl - benchDaily)
+              });
+            }
+            if (dayMv > 0) prevTotalMv = dayMv;
+          }
+          if (series.length > 0) return series;
+        }
+      }
+
+      // 離線 / Canvas 無後端時的備援模擬
       const startStr = sortedTx.length > 0 ? sortedTx[0].date : '2026-01-02';
       const start = new Date(startStr + 'T00:00:00');
       const end = new Date();
       end.setHours(0, 0, 0, 0);
-
       const days = [];
       const cur = new Date(start);
       while (cur <= end) {
         const dow = cur.getDay();
-        if (dow !== 0 && dow !== 6) {
-          const iso = toLocalIso(cur);
-          days.push(iso);
-        }
+        if (dow !== 0 && dow !== 6) days.push(toLocalIso(cur));
         cur.setDate(cur.getDate() + 1);
       }
       if (days.length === 0) return [];
@@ -1739,20 +1818,14 @@
         const wave = Math.sin(seed * 0.17 + idx * 0.35) + Math.cos(seed * 0.07);
         return wave * 0.012 * mv * (0.35 + 0.65 * (idx / days.length));
       });
-
       const rawSum = rawWeights.reduce((a, b) => a + b, 0);
-      const scale = data.portfolioTotalPnl - rawSum;
-      const perDayAdj = scale / days.length;
-
+      const perDayAdj = (data.portfolioTotalPnl - rawSum) / days.length;
       let runningCum = 0;
-      const series = days.map((iso, idx) => {
+      return days.map((iso, idx) => {
         const daily = Math.round(rawWeights[idx] + perDayAdj);
         runningCum += daily;
-        const pct = (daily / mv) * 100;
-        const benchDaily = Math.round(daily * 0.72 + Math.sin(idx) * mv * 0.002);
-        return { date: iso, daily, cum: runningCum, pct, benchDiff: daily - benchDaily };
+        return { date: iso, daily, cum: runningCum, pct: (daily / mv) * 100, mv, benchDiff: Math.round(daily * 0.25) };
       });
-      return series;
     }
 
     function renderTrendAndCalendar(data) {
@@ -1948,13 +2021,75 @@
       }).join('');
     }
 
+    function getRangeCutoffDate(rangeKey, firstTxDate) {
+      const d = new Date();
+      if (rangeKey === '1M') d.setMonth(d.getMonth() - 1);
+      else if (rangeKey === '3M') d.setMonth(d.getMonth() - 3);
+      else if (rangeKey === '6M') d.setMonth(d.getMonth() - 6);
+      else if (rangeKey === 'YTD') {
+        const jan1 = `${d.getFullYear()}-01-01`;
+        return firstTxDate && firstTxDate > jan1 ? firstTxDate : jan1;
+      }
+      else if (rangeKey === '1Y') d.setFullYear(d.getFullYear() - 1);
+      else if (rangeKey === '3Y') d.setFullYear(d.getFullYear() - 3);
+      else return firstTxDate || '2020-01-01';
+      const cutoff = toLocalIso(d);
+      return firstTxDate && firstTxDate > cutoff ? firstTxDate : cutoff;
+    }
+
     function renderBenchmarkChart(data) {
-      const rangeMap = { '1M': 4, '3M': 6, '6M': 8, '1Y': 12, '3Y': 18, 'ALL': 24 };
-      const points = rangeMap[state.perfRange] || 12;
-      const myFinal = data.portfolioTotalRetPct;
       const targetSym = state.compareSymbol || '0050';
-      const targetBase = targetSym === '0050' ? 24.5 : targetSym === '2330' ? 38.2 : targetSym === '00919' ? 16.8 : 19.5;
-      const targetFinal = targetBase * (points / 12);
+      const sortedTx = [...state.transactions].sort((a, b) => a.date.localeCompare(b.date));
+      const firstTxDate = sortedTx[0]?.date || '2024-01-01';
+      const cutoff = getRangeCutoffDate(state.perfRange, firstTxDate);
+
+      const allDaily = buildDailyPnlSeries(data);
+      const cmpRaw = realHistoryMap[targetSym] || [];
+      const cmpSlice = cmpRaw.filter(pt => pt.date >= cutoff);
+      const mySlice = allDaily.filter(pt => pt.date >= cutoff);
+
+      let labels = [];
+      let mySeries = [];
+      let tgtSeries = [];
+      let myFinal = data.portfolioTotalRetPct;
+      let targetFinal = 0;
+
+      if (cmpSlice.length >= 2 && mySlice.length >= 2) {
+        // 真實歷史時間加權累計報酬 (%) 與 0050 含股利 (adjclose)
+        const cmpBase = cmpSlice[0].adjclose || cmpSlice[0].close;
+        const cmpMap = {};
+        cmpSlice.forEach(pt => {
+          const val = pt.adjclose || pt.close;
+          cmpMap[pt.date] = cmpBase > 0 ? Number((((val - cmpBase) / cmpBase) * 100).toFixed(2)) : 0;
+        });
+
+        let twrFactor = 1;
+        let lastCmpPct = 0;
+        labels = mySlice.map(pt => pt.date.slice(5));
+        mySeries = mySlice.map((pt, idx) => {
+          if (idx > 0) twrFactor *= (1 + (pt.pct || 0) / 100);
+          return Number(((twrFactor - 1) * 100).toFixed(2));
+        });
+        tgtSeries = mySlice.map(pt => {
+          if (cmpMap[pt.date] !== undefined) lastCmpPct = cmpMap[pt.date];
+          return lastCmpPct;
+        });
+        myFinal = state.perfRange === 'ALL' ? data.portfolioTotalRetPct : (mySeries[mySeries.length - 1] || 0);
+        targetFinal = tgtSeries[tgtSeries.length - 1] || 0;
+      } else {
+        // 離線備援曲線
+        const rangeScale = { '1M': 0.12, '3M': 0.28, '6M': 0.52, 'YTD': 0.72, '1Y': 0.82, '3Y': 1.0, 'ALL': 1.0 }[state.perfRange] || 1.0;
+        const points = { '1M': 6, '3M': 8, '6M': 10, 'YTD': 11, '1Y': 12, '3Y': 18, 'ALL': 24 }[state.perfRange] || 12;
+        myFinal = Number((data.portfolioTotalRetPct * rangeScale).toFixed(2));
+        const targetBase = targetSym === '0050' ? 53.95 : targetSym === '2330' ? 62.0 : 28.0;
+        targetFinal = Number((targetBase * rangeScale).toFixed(2));
+        labels = Array.from({ length: points }, (_, i) => `T-${points - 1 - i}`);
+        mySeries = labels.map((_, i) => Number(((myFinal * (i / Math.max(1, points - 1))) + Math.sin(i * 0.9) * 1.4).toFixed(2)));
+        mySeries[0] = 0; mySeries[mySeries.length - 1] = myFinal;
+        tgtSeries = labels.map((_, i) => Number(((targetFinal * (i / Math.max(1, points - 1))) + Math.cos(i * 0.8) * 1.2).toFixed(2)));
+        tgtSeries[0] = 0; tgtSeries[tgtSeries.length - 1] = targetFinal;
+      }
+
       const alpha = myFinal - targetFinal;
 
       document.getElementById('bench-target-label').textContent = `${targetSym} 含股利`;
@@ -1969,15 +2104,6 @@
       const alphaEl = document.getElementById('bench-alpha');
       alphaEl.textContent = fmtPct(alpha);
       alphaEl.className = `mt-0.5 text-base font-bold tabular-nums ${pnlColorClass(alpha)}`;
-
-      const labels = Array.from({ length: points }, (_, i) => `T-${points - 1 - i}`);
-      const mySeries = labels.map((_, i) => Number(((myFinal * (i / Math.max(1, points - 1))) + Math.sin(i * 0.9) * 2.1).toFixed(2)));
-      mySeries[0] = 0;
-      mySeries[mySeries.length - 1] = Number(myFinal.toFixed(2));
-
-      const tgtSeries = labels.map((_, i) => Number(((targetFinal * (i / Math.max(1, points - 1))) + Math.cos(i * 0.8) * 1.6).toFixed(2)));
-      tgtSeries[0] = 0;
-      tgtSeries[tgtSeries.length - 1] = Number(targetFinal.toFixed(2));
 
       const ctx = document.getElementById('benchmark-chart').getContext('2d');
       if (benchmarkChart) benchmarkChart.destroy();
@@ -2737,6 +2863,82 @@
         showToast(state.privacyMode ? '已開啟隱私隱藏金額模式' : '已關閉隱私模式');
       });
 
+
+    async function fetchBatchHistory() {
+      if (!window.location.protocol.startsWith('http')) return;
+      const syms = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
+      if (syms.length === 0) return;
+      try {
+        const res = await fetch(`/api/market?batchHistory=1&symbols=${encodeURIComponent(syms.join(','))}&compare=${encodeURIComponent(state.compareSymbol || '0050')}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json && json.historyBySymbol) {
+          realHistoryMap = { ...realHistoryMap, ...json.historyBySymbol };
+          const d = analyzePortfolio();
+          renderBenchmarkChart(d);
+          renderTrendAndCalendar(d);
+        }
+      } catch (_) {}
+    }
+
+    async function autoSyncDividends(silent = true) {
+      if (!window.location.protocol.startsWith('http')) return;
+      const btn = document.getElementById('sync-dividends-btn');
+      const syms = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
+      if (syms.length === 0) {
+        if (!silent) showToast('目前沒有任何持股或交易紀錄');
+        return;
+      }
+      const sorted = [...state.transactions].sort((a, b) => a.date.localeCompare(b.date));
+      const startDate = sorted[0]?.date || '2020-01-01';
+      if (btn && !silent) btn.textContent = '查詢股利中...';
+      try {
+        const res = await fetch(`/api/dividends?symbols=${encodeURIComponent(syms.join(','))}&startDate=${encodeURIComponent(startDate)}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const events = Array.isArray(json.events) ? json.events : [];
+        let added = 0;
+
+        for (const ev of events) {
+          let heldBefore = 0;
+          for (const tx of sorted) {
+            if (tx.symbol !== ev.symbol || tx.date >= ev.exDate) continue;
+            if (tx.type === '買入' || tx.type === '配股') heldBefore += tx.shares;
+            else if (tx.type === '賣出') heldBefore = Math.max(0, heldBefore - tx.shares);
+          }
+          if (heldBefore <= 0) continue;
+          const exists = state.transactions.some(t => t.symbol === ev.symbol && t.type === '股利' && t.date === ev.exDate);
+          if (!exists) {
+            const divTx = {
+              id: `div_${ev.symbol}_${ev.exDate}`,
+              symbol: ev.symbol,
+              name: TW_STOCK_NAMES[ev.symbol] || ev.name || ev.symbol,
+              type: '股利',
+              date: ev.exDate,
+              shares: heldBefore,
+              price: ev.cashPerShare,
+              note: '自動補齊除息股利'
+            };
+            state.transactions.push(divTx);
+            pushTransactionToCloud(divTx);
+            added++;
+          }
+        }
+
+        if (added > 0) {
+          saveState();
+          renderAll();
+          if (!silent) showToast(`已自動補齊 ${added} 筆應領股利紀錄！`);
+        } else if (!silent) {
+          showToast('目前買入日之後的應領股利皆已入帳（無缺漏）');
+        }
+      } catch (_) {
+        if (!silent) showToast('需於 Vercel 線上環境才能自動查詢除息紀錄');
+      } finally {
+        if (btn && !silent) btn.textContent = '自動補齊應領股利';
+      }
+    }
+
       // Fetch Live Prices from Vercel Serverless API (/api/prices)
       async function syncLivePrices(silent = false) {
         const lbl = document.getElementById('refresh-prices-label');
@@ -2779,63 +2981,9 @@
       }
 
       document.getElementById('refresh-prices-btn').addEventListener('click', () => syncLivePrices(false));
-      document.getElementById('sync-dividends-btn').addEventListener('click', async () => {
-        const btn = document.getElementById('sync-dividends-btn');
-        const syms = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
-        if (syms.length === 0) return showToast('目前沒有任何持股或交易紀錄');
-        const sorted = [...state.transactions].sort((a, b) => a.date.localeCompare(b.date));
-        const startDate = sorted[0]?.date || '2024-01-01';
-        btn.textContent = '查詢股利中...';
-        try {
-          const res = await fetch(`/api/dividends?symbols=${encodeURIComponent(syms.join(','))}&startDate=${encodeURIComponent(startDate)}`);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const json = await res.json();
-          const events = Array.isArray(json.events) ? json.events : [];
-          let added = 0;
+      document.getElementById('sync-dividends-btn').addEventListener('click', () => autoSyncDividends(false));
 
-          for (const ev of events) {
-            // 計算除息日前一天為止持有的有效股數
-            let heldBefore = 0;
-            for (const tx of sorted) {
-              if (tx.symbol !== ev.symbol || tx.date >= ev.exDate) continue;
-              if (tx.type === '買入' || tx.type === '配股') heldBefore += tx.shares;
-              else if (tx.type === '賣出') heldBefore = Math.max(0, heldBefore - tx.shares);
-            }
-            if (heldBefore <= 0) continue;
-
-            const exists = state.transactions.some(t => t.symbol === ev.symbol && t.type === '股利' && t.date === ev.exDate);
-            if (!exists) {
-              const divTx = {
-                id: `div_${ev.symbol}_${ev.exDate}`,
-                symbol: ev.symbol,
-                name: ev.name || TW_STOCK_NAMES[ev.symbol] || ev.symbol,
-                type: '股利',
-                date: ev.exDate,
-                shares: heldBefore,
-                price: ev.cashPerShare,
-                note: '自動補齊除息股利'
-              };
-              state.transactions.push(divTx);
-              pushTransactionToCloud(divTx);
-              added++;
-            }
-          }
-
-          if (added > 0) {
-            saveState();
-            renderAll();
-            showToast(`已自動補齊 ${added} 筆應領股利紀錄！`);
-          } else {
-            showToast('目前買入日之後的應領股利皆已入帳（無缺漏）');
-          }
-        } catch (err) {
-          showToast('需於 Vercel 線上環境才能自動查詢除息紀錄');
-        } finally {
-          btn.textContent = '自動補齊應領股利';
-        }
-      });
-
-      document.getElementById('fetch-chips-btn').addEventListener('click', () => fetchChipsData(false));
+            document.getElementById('fetch-chips-btn').addEventListener('click', () => fetchChipsData(false));
       document.getElementById('chips-extra-symbol').addEventListener('keydown', e => {
         if (e.key === 'Enter') fetchChipsData(false);
       });
@@ -2856,6 +3004,8 @@
         syncLivePrices(true);
         fetchChipsData(true);
         fetchMarketData(true);
+        fetchBatchHistory();
+        autoSyncDividends(true);
       }
 
       // Range & Compare
@@ -2870,10 +3020,11 @@
           renderBenchmarkChart(analyzePortfolio());
         });
       });
-      document.getElementById('compare-symbol-btn').addEventListener('click', () => {
+      document.getElementById('compare-symbol-btn').addEventListener('click', async () => {
         const val = document.getElementById('compare-symbol-input').value.trim();
         if (!val) return showToast('請輸入要對比的股票代碼');
         state.compareSymbol = val;
+        if (!realHistoryMap[val]) await fetchBatchHistory();
         renderBenchmarkChart(analyzePortfolio());
       });
       document.getElementById('reset-compare-btn').addEventListener('click', () => {
