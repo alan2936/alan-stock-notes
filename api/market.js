@@ -1,4 +1,7 @@
-// Vercel Serverless Function: 抓取美股四大指數、美股期貨、台積電ADR 迷你走勢圖，以及加權指數 / S&P500 / 持股區間報酬率
+// Vercel Serverless Function:
+// 1. 美股指數 / 期貨 / 台積電ADR 迷你走勢圖 + 個股/大盤區間報酬
+// 2. ?historySymbol=2330 -> 單檔近1年日線
+// 3. ?batchHistory=1&symbols=...&compare=0050 -> 多檔近3年真實日收盤與含息還原(adjclose)序列
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/';
 
 const MARKET_CARDS = {
@@ -26,6 +29,36 @@ async function fetchChart(symbol, range = '1d', interval = '15m') {
   return json?.chart?.result?.[0] || null;
 }
 
+async function fetchTwHistory(sym, range = '3y') {
+  const yf = /^\d/.test(sym) ? `${sym}.TW` : sym;
+  let r = await fetchChart(yf, range, '1d').catch(() => null);
+  if (!r && yf.endsWith('.TW')) {
+    r = await fetchChart(yf.replace('.TW', '.TWO'), range, '1d').catch(() => null);
+  }
+  return r;
+}
+
+function extractDailySeries(result) {
+  const ts = result?.timestamp || [];
+  const closes = result?.indicators?.quote?.[0]?.close || [];
+  const adj = result?.indicators?.adjclose?.[0]?.adjclose || closes;
+  const out = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = closes[i];
+    if (typeof c === 'number' && !Number.isNaN(c) && c > 0) {
+      const a = typeof adj[i] === 'number' && !Number.isNaN(adj[i]) && adj[i] > 0 ? adj[i] : c;
+      // Convert UTC timestamp to Taipei local date (UTC+8)
+      const d = new Date(ts[i] * 1000 + 8 * 3600 * 1000);
+      out.push({
+        date: d.toISOString().slice(0, 10),
+        close: Number(c.toFixed(2)),
+        adjclose: Number(a.toFixed(4))
+      });
+    }
+  }
+  return out;
+}
+
 function parseIntradayCard(metaItem, result) {
   const meta = result?.meta || {};
   const closes = (result?.indicators?.quote?.[0]?.close || []).filter(v => typeof v === 'number' && !Number.isNaN(v));
@@ -45,14 +78,7 @@ function parseIntradayCard(metaItem, result) {
 }
 
 function computePerfFromHistory(result) {
-  const ts = result?.timestamp || [];
-  const closes = result?.indicators?.quote?.[0]?.close || [];
-  const pairs = [];
-  for (let i = 0; i < ts.length; i++) {
-    if (typeof closes[i] === 'number' && !Number.isNaN(closes[i])) {
-      pairs.push({ date: new Date(ts[i] * 1000).toISOString().slice(0, 10), close: closes[i] });
-    }
-  }
+  const pairs = extractDailySeries(result);
   if (pairs.length < 2) return null;
   const last = pairs[pairs.length - 1].close;
   const calcPct = idx => {
@@ -76,34 +102,40 @@ module.exports = async function handler(req, res) {
   }
 
   const historySymbol = String(req.query.historySymbol || '').trim();
+  const batchHistory = String(req.query.batchHistory || '') === '1';
+  const compareSym = String(req.query.compare || '0050').trim();
   const rawSymbols = String(req.query.symbols || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
 
   try {
-    // 若指定 historySymbol，回傳近一年日線收盤資料（供前端繪製半年走勢與 MA5/MA20/MA60）
+    // 單檔日線 (供個股彈窗用)
     if (historySymbol) {
-      const yf = /^\d/.test(historySymbol) ? `${historySymbol}.TW` : historySymbol;
-      let r = await fetchChart(yf, '1y', '1d').catch(() => null);
-      if (!r && yf.endsWith('.TW')) {
-        r = await fetchChart(yf.replace('.TW', '.TWO'), '1y', '1d').catch(() => null);
-      }
-      const ts = r?.timestamp || [];
-      const closes = r?.indicators?.quote?.[0]?.close || [];
-      const series = [];
-      for (let i = 0; i < ts.length; i++) {
-        if (typeof closes[i] === 'number' && !Number.isNaN(closes[i])) {
-          series.push({
-            date: new Date(ts[i] * 1000).toISOString().slice(0, 10),
-            close: Number(closes[i].toFixed(2))
-          });
-        }
-      }
+      const r = await fetchTwHistory(historySymbol, '1y');
+      const series = r ? extractDailySeries(r) : [];
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
       return res.status(200).json({ symbol: historySymbol, series });
     }
-    // 1. 抓取指數與期貨 4 格卡片
+
+    // 批次真實歷史日線 (供真實報酬日曆、走勢分析、績效 vs 0050 含股利用)
+    if (batchHistory) {
+      const allSyms = Array.from(new Set([...rawSymbols, compareSym].filter(Boolean)));
+      const results = await Promise.all(
+        allSyms.map(async s => {
+          const r = await fetchTwHistory(s, '3y');
+          return { s, series: r ? extractDailySeries(r) : [] };
+        })
+      );
+      const historyBySymbol = {};
+      for (const item of results) {
+        if (item.series.length > 0) historyBySymbol[item.s] = item.series;
+      }
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      return res.status(200).json({ historyBySymbol });
+    }
+
+    // 指數與期貨 4 格卡片 + 大盤與持股漲跌幅
     const allCardMeta = [...MARKET_CARDS.indices, ...MARKET_CARDS.futures];
     const cardResults = await Promise.all(
       allCardMeta.map(m => fetchChart(m.symbol, '1d', '15m').catch(() => null))
@@ -112,21 +144,11 @@ module.exports = async function handler(req, res) {
     const indices = MARKET_CARDS.indices.map((m, i) => parseIntradayCard(m, cardResults[i]));
     const futures = MARKET_CARDS.futures.map((m, i) => parseIntradayCard(m, cardResults[MARKET_CARDS.indices.length + i]));
 
-    // 2. 抓取加權指數 (^TWII)、S&P 500 (^GSPC) 與持股的真實區間漲跌幅
-    const perfTargets = [
-      { key: '^TWII', yf: '^TWII' },
-      { key: '^GSPC', yf: '^GSPC' },
-      ...rawSymbols.map(s => ({ key: s, yf: /^\d/.test(s) ? `${s}.TW` : s }))
-    ];
-
+    const perfTargets = ['^TWII', '^GSPC', ...rawSymbols];
     const perfResults = await Promise.all(
-      perfTargets.map(async t => {
-        let r = await fetchChart(t.yf, '1y', '1d').catch(() => null);
-        // 若上市 .TW 查無資料，嘗試上櫃 .TWO
-        if (!r && t.yf.endsWith('.TW')) {
-          r = await fetchChart(t.yf.replace('.TW', '.TWO'), '1y', '1d').catch(() => null);
-        }
-        return { key: t.key, perf: r ? computePerfFromHistory(r) : null };
+      perfTargets.map(async k => {
+        const r = await fetchTwHistory(k, '1y');
+        return { key: k, perf: r ? computePerfFromHistory(r) : null };
       })
     );
 
