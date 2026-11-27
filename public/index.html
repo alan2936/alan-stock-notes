@@ -163,10 +163,8 @@
             <i data-lucide="layers" class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400"></i>
             <span>帳戶檢視：</span>
           </div>
-          <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
+          <div id="account-filter-bar" class="inline-flex flex-wrap rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs gap-0.5">
             <button type="button" data-acct-filter="ALL" class="acct-filter-btn px-3 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm">全部帳戶</button>
-            <button type="button" data-acct-filter="國泰" class="acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">國泰</button>
-            <button type="button" data-acct-filter="富邦" class="acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">富邦</button>
           </div>
         </div>
         <!-- TAB 1: 資產 (ASSETS) -->
@@ -903,12 +901,22 @@
 
                 <div class="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label class="block text-xs text-slate-500 mb-1">券商帳戶</label>
-                    <select id="tx-account" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                      <option value="國泰">國泰</option>
-                      <option value="富邦">富邦</option>
-                      <option value="其他">其他</option>
-                    </select>
+                    <label class="block text-xs text-slate-500 mb-1">券商／帳戶名稱</label>
+                    <input id="tx-account" type="text" list="broker-presets" placeholder="可選填（如元大、國泰）" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+                    <datalist id="broker-presets">
+                      <option value="國泰證券"></option>
+                      <option value="富邦證券"></option>
+                      <option value="元大證券"></option>
+                      <option value="凱基證券"></option>
+                      <option value="永豐金證券"></option>
+                      <option value="玉山證券"></option>
+                      <option value="群益證券"></option>
+                      <option value="台新證券"></option>
+                      <option value="新光證券"></option>
+                      <option value="口袋證券"></option>
+                      <option value="中國信託證券"></option>
+                      <option value="兆豐證券"></option>
+                    </datalist>
                   </div>
                   <div>
                     <label class="block text-xs text-slate-500 mb-1">備註（選填）</label>
@@ -1224,7 +1232,7 @@
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
     const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
-    const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3d25pYmZ6dXpuZmtmdWt4b2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzI0NjQsImV4cCI6MjExMTEwODQ2NH0.SS8FiMnco8N6YONGguoXunG9JydfYsZGXBre1F0UE8Q';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
 
@@ -1629,12 +1637,29 @@
       return ((low + high) / 2) * 100;
     }
 
+    const KNOWN_BROKERS = ['國泰', '富邦', '元大', '凱基', '永豐', '玉山', '群益', '台新', '新光', '口袋', '中信', '兆豐', '第一金', '合庫', '華南'];
     function inferAccount(tx) {
-      if (tx.account) return tx.account;
+      if (tx.account && String(tx.account).trim()) return String(tx.account).trim();
       const n = String(tx.note || '');
-      if (n.includes('富邦')) return '富邦';
-      if (n.includes('國泰')) return '國泰';
-      return '國泰';
+      for (const b of KNOWN_BROKERS) {
+        if (n.includes(b)) return b;
+      }
+      return '預設帳戶';
+    }
+
+    function renderAccountFilterBar() {
+      const bar = document.getElementById('account-filter-bar');
+      if (!bar) return;
+      const accounts = Array.from(new Set(state.transactions.map(inferAccount).filter(Boolean)));
+      if (state.accountFilter !== 'ALL' && !accounts.includes(state.accountFilter)) {
+        state.accountFilter = 'ALL';
+      }
+      const opts = ['ALL', ...accounts];
+      bar.innerHTML = opts.map(acc => {
+        const active = state.accountFilter === acc;
+        const label = acc === 'ALL' ? '全部帳戶' : acc;
+        return `<button type="button" data-acct-filter="${acc.replace(/"/g, '&quot;')}" class="acct-filter-btn px-3 py-1 rounded-md transition-colors ${active ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm' : 'text-slate-600 dark:text-slate-300 font-medium hover:text-slate-900 dark:hover:text-white'}">${label}</button>`;
+      }).join('');
     }
 
     function getScopedTransactions() {
@@ -1833,6 +1858,7 @@
     }
 
     function renderAll() {
+      renderAccountFilterBar();
       const data = analyzePortfolio();
       renderAssetsTab(data);
       renderHoldingsTab(data);
@@ -3769,17 +3795,12 @@
         renderScmActiveChart();
       });
 
-      // 多券商帳戶切換
-      document.querySelectorAll('.acct-filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          state.accountFilter = btn.dataset.acctFilter;
-          document.querySelectorAll('.acct-filter-btn').forEach(b => {
-            b.className = b.dataset.acctFilter === state.accountFilter
-              ? 'acct-filter-btn px-3 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm'
-              : 'acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium';
-          });
-          renderAll();
-        });
+      // 多券商帳戶動態切換
+      document.getElementById('account-filter-bar').addEventListener('click', e => {
+        const btn = e.target.closest('.acct-filter-btn');
+        if (!btn) return;
+        state.accountFilter = btn.dataset.acctFilter;
+        renderAll();
       });
 
       // 自選股觀察清單操作
@@ -4432,7 +4453,7 @@
         const date = document.getElementById('tx-date').value;
         const shares = Number(document.getElementById('tx-shares').value);
         const price = Number(document.getElementById('tx-price').value);
-        const account = document.getElementById('tx-account').value;
+        const account = document.getElementById('tx-account').value.trim() || '預設帳戶';
         const note = document.getElementById('tx-note').value.trim();
 
         const newTx = {
@@ -4444,7 +4465,7 @@
           shares,
           price,
           account,
-          note: note || (account !== '國泰' ? account : '')
+          note: note || (account !== '預設帳戶' ? account : '')
         };
         state.transactions.push(newTx);
         pushTransactionToCloud(newTx);
@@ -4471,7 +4492,10 @@
               <div><label class="block text-xs text-slate-500 mb-1">股數</label><input id="edit-tx-shares" type="number" step="1" value="${tx.shares}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums" /></div>
               <div><label class="block text-xs text-slate-500 mb-1">單價／每股股利</label><input id="edit-tx-price" type="number" step="0.0001" value="${tx.price}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums" /></div>
             </div>
-            <div><label class="block text-xs text-slate-500 mb-1">備註</label><input id="edit-tx-note" type="text" value="${(tx.note || '').replace(/"/g, '&quot;')}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" /></div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div><label class="block text-xs text-slate-500 mb-1">券商／帳戶</label><input id="edit-tx-account" type="text" list="broker-presets" value="${inferAccount(tx).replace(/"/g, '&quot;')}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" /></div>
+              <div><label class="block text-xs text-slate-500 mb-1">備註</label><input id="edit-tx-note" type="text" value="${(tx.note || '').replace(/"/g, '&quot;')}" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" /></div>
+            </div>
             <button id="save-edit-tx-btn" type="button" class="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold">儲存修改</button>
           `;
           openModal('action-modal');
@@ -4480,6 +4504,7 @@
             tx.date = document.getElementById('edit-tx-date').value;
             tx.shares = Number(document.getElementById('edit-tx-shares').value) || 0;
             tx.price = Number(document.getElementById('edit-tx-price').value) || 0;
+            tx.account = document.getElementById('edit-tx-account').value.trim() || '預設帳戶';
             tx.note = document.getElementById('edit-tx-note').value.trim();
             pushTransactionToCloud(tx);
             saveState();
