@@ -1237,7 +1237,7 @@
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
     const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
-    const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3d25pYmZ6dXpuZmtmdWt4b2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzI0NjQsImV4cCI6MjExMTEwODQ2NH0.SS8FiMnco8N6YONGguoXunG9JydfYsZGXBre1F0UE8Q';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
 
@@ -1413,6 +1413,7 @@
           date: r.date,
           shares: Number(r.shares),
           price: Number(r.price),
+          account: r.account || '',
           note: r.note || ''
         }));
         saveState();
@@ -1435,6 +1436,7 @@
         date: tx.date,
         shares: tx.shares,
         price: tx.price,
+        account: tx.account || '',
         note: tx.note || ''
       });
       if (error) showToast('雲端寫入失敗：' + error.message);
@@ -1463,6 +1465,7 @@
         date: tx.date,
         shares: tx.shares,
         price: tx.price,
+        account: tx.account || '',
         note: tx.note || ''
       }));
       const { error } = await supabaseClient.from('transactions').upsert(rows);
