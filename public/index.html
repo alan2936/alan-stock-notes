@@ -3317,21 +3317,31 @@
             ? `\n特別注意：若圖片中沒有顯示股票代碼或名稱，請統一帶入股票代碼「${fallbackSym}」（名稱「${TW_STOCK_NAMES[fallbackSym] || fallbackSym}」）。`
             : '';
           const promptText = `你是一個專業的台股對帳單與庫存截圖解析器。請一次辨識這 ${files.length} 張圖片中的所有台灣股票庫存或交易明細（若多張截圖有重疊同一筆資料請自動合併去重），並嚴格只回傳 JSON 陣列（不要其他文字），每個元素格式為：
-{"symbol":"股票代碼(如2330)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${toLocalIso(new Date())})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}${fallbackHint}`;
+{"symbol":"股票代碼(若圖中只有中文名稱請自動推算對應台股代碼，如華南金=2880、光寶科=2301、聯發科=2454、寶雅*=5904、佳格=1227、偉訓=3032、富邦媒=8454、國泰永續高股息=00878、主動統一台股增長=00981A、主動群益台灣強棒=00982A)","name":"股票名稱","type":"買入或賣出或股利","date":"YYYY-MM-DD(若圖中無日期請用${toLocalIso(new Date())})","shares":股數整數(若圖中單位是張請乘以1000),"price":均價或成交單價數字,"note":"截圖AI辨識"}${fallbackHint}`;
 
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{ text: promptText }, ...imageParts]
-              }]
-            })
-          });
-          const json = await res.json();
-          const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+          let json = null;
+          let rawText = '';
+          let lastErr = '';
+          for (const modelName of modelsToTry) {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(state.geminiApiKey)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{ text: promptText }, ...imageParts]
+                }]
+              })
+            });
+            json = await res.json();
+            if (res.ok && json?.candidates?.[0]?.content?.parts?.[0]?.text) {
+              rawText = json.candidates[0].content.parts[0].text;
+              break;
+            }
+            lastErr = json?.error?.message || `HTTP ${res.status}`;
+          }
           const match = rawText.match(/\[[\s\S]*\]/);
-          if (!match) throw new Error(json?.error?.message || '無法解析辨識結果');
+          if (!match) throw new Error(lastErr || '無法解析辨識結果');
           aiParsedItems = JSON.parse(match[0]).map(it => {
             const sym = String(it.symbol || '').trim() || fallbackSym;
             return {
