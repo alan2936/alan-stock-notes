@@ -1180,14 +1180,18 @@
       };
     }
 
+    let hasPulledInitialCloud = false;
     async function initSupabase() {
       const { url, key } = getSbCreds();
+      const lbl = document.getElementById('cloud-auth-label');
       if (!url || !key || !window.supabase) {
         supabaseClient = null;
         currentUser = null;
         updateCloudUI();
         return;
       }
+      if (lbl) lbl.textContent = '檢查中...';
+
       // 檢查網址列是否有 OAuth 回調錯誤訊息
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -1204,19 +1208,27 @@
         }
       });
 
-      // 等待 supabase-js 自動完成 URL OAuth token/code 解析
+      // 先註冊狀態監聽，確保不會漏接 INITIAL_SESSION 與 TOKEN_REFRESHED
+      supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        currentUser = session?.user || null;
+        updateCloudUI();
+        if (currentUser && (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && !hasPulledInitialCloud))) {
+          hasPulledInitialCloud = true;
+          await pullTransactionsFromCloud();
+        }
+      });
+
+      // 等待 supabase-js 自動完成本地 session 恢復或 OAuth token 刷新
       const { data } = await supabaseClient.auth.getSession();
       if (urlParams.get('code') || hashParams.get('access_token')) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
       currentUser = data?.session?.user || null;
-      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-        currentUser = session?.user || null;
-        updateCloudUI();
-        if (currentUser) await pullTransactionsFromCloud();
-      });
       updateCloudUI();
-      if (currentUser) await pullTransactionsFromCloud();
+      if (currentUser && !hasPulledInitialCloud) {
+        hasPulledInitialCloud = true;
+        await pullTransactionsFromCloud();
+      }
     }
 
     function updateCloudUI() {
@@ -3280,9 +3292,28 @@
         }
         showToast('已將 AI 辨識結果匯入帳本');
       });
-      document.getElementById('cloud-auth-btn').addEventListener('click', () => {
+      document.getElementById('cloud-auth-btn').addEventListener('click', async () => {
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.auth.getSession();
+            if (data?.session?.user) {
+              currentUser = data.session.user;
+              updateCloudUI();
+            }
+          } catch (_) {}
+        }
         renderCloudModal();
         openModal('cloud-modal');
+      });
+
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && supabaseClient) {
+          try {
+            const { data } = await supabaseClient.auth.getSession();
+            currentUser = data?.session?.user || null;
+            updateCloudUI();
+          } catch (_) {}
+        }
       });
       document.getElementById('save-sb-config-btn').addEventListener('click', async () => {
         state.supabaseUrl = document.getElementById('setting-sb-url').value.trim();
