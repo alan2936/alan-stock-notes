@@ -1,5 +1,66 @@
-// Vercel Serverless Function: 查詢台股（上市/上櫃/ETF）真實除息歷史紀錄
+// Vercel Serverless Function:
+// 1. 預設：查詢台股（上市/上櫃/ETF）歷史除息紀錄
+// 2. ?upcoming=1：查詢證交所官方除權除息預告表 (TWT48U_ALL)
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+const TWSE_UPCOMING_URL = 'https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL';
+
+function parseRocDateToIso(raw) {
+  const s = String(raw || '').trim();
+  // 格式1: "115年12月10日" 或 "115/12/10"
+  let m = s.match(/(\d{2,3})\D+(\d{1,2})\D+(\d{1,2})/);
+  if (m) {
+    return `${Number(m[1]) + 1911}-${String(Number(m[2])).padStart(2, '0')}-${String(Number(m[3])).padStart(2, '0')}`;
+  }
+  // 格式2: "1151210"
+  m = s.match(/^(\d{3})(\d{2})(\d{2})$/);
+  if (m) {
+    return `${Number(m[1]) + 1911}-${m[2]}-${m[3]}`;
+  }
+  return '';
+}
+
+function calcLastBuyDate(exIso) {
+  if (!exIso) return '';
+  const d = new Date(exIso + 'T00:00:00Z');
+  do {
+    d.setUTCDate(d.getUTCDate() - 1);
+  } while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
+
+function toNum(v) {
+  const n = Number(String(v || '').replace(/,/g, '').trim());
+  return Number.isNaN(n) ? 0 : n;
+}
+
+async function fetchUpcomingTwse(symbolSet, showAll) {
+  const r = await fetch(TWSE_UPCOMING_URL, { headers: { Accept: 'application/json' } });
+  if (!r.ok) return [];
+  const rows = await r.json();
+  if (!Array.isArray(rows)) return [];
+
+  const taipeiToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const items = [];
+  for (const row of rows) {
+    const code = String(row.Code || '').trim();
+    if (!code) continue;
+    if (!showAll && symbolSet.size > 0 && !symbolSet.has(code)) continue;
+    const exDate = parseRocDateToIso(row.Date);
+    if (!exDate || exDate < taipeiToday) continue;
+    const cashPerShare = toNum(row.CashDividend);
+    const stockRatio = toNum(row.StockDividendRatio);
+    items.push({
+      symbol: code,
+      name: String(row.Name || '').trim(),
+      exDate,
+      lastBuyDate: calcLastBuyDate(exDate),
+      kind: String(row.Exdividend || '息').trim(),
+      cashPerShare: Number(cashPerShare.toFixed(4)),
+      stockRatio: Number(stockRatio.toFixed(4))
+    });
+  }
+  return items.sort((a, b) => a.exDate.localeCompare(b.exDate)).slice(0, showAll ? 30 : 50);
+}
 
 async function fetchDividendsForSymbol(sym) {
   const yf = /^\d/.test(sym) ? `${sym}.TW` : sym;
@@ -41,9 +102,17 @@ module.exports = async function handler(req, res) {
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-  const startDate = String(req.query.startDate || '2020-01-01');
+  const symbolSet = new Set(rawSymbols);
 
   try {
+    if (String(req.query.upcoming || '') === '1') {
+      const showAll = String(req.query.all || '') === '1';
+      const upcoming = await fetchUpcomingTwse(symbolSet, showAll);
+      res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+      return res.status(200).json({ upcoming, count: upcoming.length });
+    }
+
+    const startDate = String(req.query.startDate || '2020-01-01');
     const allLists = await Promise.all(rawSymbols.map(s => fetchDividendsForSymbol(s)));
     const events = allLists
       .flat()
