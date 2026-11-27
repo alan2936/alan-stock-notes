@@ -250,11 +250,14 @@ module.exports = async function handler(req, res) {
     .filter(Boolean);
 
   try {
-    // 單檔近 3 年日線 + 證交所本益比/殖利率/股價淨值比 (供個股均線與價值河流圖用)
+    // 單檔近 3 年日線 + 證交所本益比/殖利率/股價淨值比 + 月營收 YoY
     if (historySymbol) {
-      const [r, bwRes] = await Promise.all([
+      const [r, bwRes, revRes] = await Promise.all([
         fetchTwHistory(historySymbol, '3y'),
         fetch('https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL', {
+          headers: { Accept: 'application/json' }
+        }).then(resp => (resp.ok ? resp.json() : null)).catch(() => null),
+        fetch('https://openapi.twse.com.tw/v1/opendata/t187ap05_L', {
           headers: { Accept: 'application/json' }
         }).then(resp => (resp.ok ? resp.json() : null)).catch(() => null)
       ]);
@@ -273,8 +276,25 @@ module.exports = async function handler(req, res) {
           };
         }
       }
+      let revenue = null;
+      if (Array.isArray(revRes)) {
+        const rHit = revRes.find(row => String(row['公司代號'] || '').trim() === historySymbol);
+        if (rHit) {
+          const monthRevK = Number(String(rHit['營業收入-當月營收'] || '').replace(/,/g, '').trim()) || 0;
+          const mom = Number(String(rHit['營業收入-上月比較增減(%)'] || '').replace(/,/g, '').trim());
+          const yoy = Number(String(rHit['營業收入-去年同月增減(%)'] || '').replace(/,/g, '').trim());
+          const cumYoy = Number(String(rHit['累計營業收入-前期比較增減(%)'] || '').replace(/,/g, '').trim());
+          revenue = {
+            ym: String(rHit['資料年月'] || '').trim(),
+            monthRevYi: Number((monthRevK / 100000).toFixed(2)),
+            mom: Number.isNaN(mom) ? null : Number(mom.toFixed(2)),
+            yoy: Number.isNaN(yoy) ? null : Number(yoy.toFixed(2)),
+            cumYoy: Number.isNaN(cumYoy) ? null : Number(cumYoy.toFixed(2))
+          };
+        }
+      }
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-      return res.status(200).json({ symbol: historySymbol, series, valuation });
+      return res.status(200).json({ symbol: historySymbol, series, valuation, revenue });
     }
 
     // 批次真實歷史日線 (Yahoo 3年歷史 + 疊加當月證交所官方 STOCK_DAY 收盤價，避免美股休市日漏資料)
