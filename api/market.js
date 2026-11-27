@@ -130,6 +130,54 @@ async function fetchTwHistory(sym, range = '3y') {
   return r;
 }
 
+
+function rocSlashToIso(raw) {
+  const m = String(raw || '').trim().match(/(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return '';
+  return `${Number(m[1]) + 1911}-${String(Number(m[2])).padStart(2, '0')}-${String(Number(m[3])).padStart(2, '0')}`;
+}
+
+async function fetchTwseCurrentMonth(sym) {
+  if (!/^\d/.test(sym)) return [];
+  const taipeiNow = new Date(Date.now() + 8 * 3600 * 1000);
+  const ym01 = `${taipeiNow.getUTCFullYear()}${String(taipeiNow.getUTCMonth() + 1).padStart(2, '0')}01`;
+  const url = `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?response=json&date=${ym01}&stockNo=${encodeURIComponent(sym)}`;
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
+    if (!r.ok) return [];
+    const json = await r.json();
+    if (!json || json.stat !== 'OK' || !Array.isArray(json.data)) return [];
+    const fields = json.fields || [];
+    const idxClose = fields.findIndex(f => f.includes('收盤價'));
+    const out = [];
+    for (const row of json.data) {
+      const date = rocSlashToIso(row[0]);
+      const close = Number(String(row[idxClose >= 0 ? idxClose : 6] || '').replace(/,/g, '').trim());
+      if (date && !Number.isNaN(close) && close > 0) {
+        out.push({ date, close: Number(close.toFixed(2)), adjclose: Number(close.toFixed(2)) });
+      }
+    }
+    return out;
+  } catch (_) {
+    return [];
+  }
+}
+
+function mergeTwseMonthIntoSeries(yfSeries, twseMonth) {
+  if (!twseMonth || twseMonth.length === 0) return yfSeries;
+  const byDate = {};
+  for (const pt of yfSeries) byDate[pt.date] = pt;
+  for (const pt of twseMonth) {
+    // 若 Yahoo 已有該日且 adjclose 明顯不同（含息還原），保留 adjclose 比例，否則直接用證交所官方收盤價補齊
+    if (byDate[pt.date]) {
+      byDate[pt.date] = { ...byDate[pt.date], close: pt.close };
+    } else {
+      byDate[pt.date] = pt;
+    }
+  }
+  return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function extractDailySeries(result) {
   const ts = result?.timestamp || [];
   const closes = result?.indicators?.quote?.[0]?.close || [];
@@ -229,18 +277,29 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ symbol: historySymbol, series, valuation });
     }
 
-    // 批次真實歷史日線 (供真實報酬日曆、走勢分析、績效 vs 0050 含股利用)
+    // 批次真實歷史日線 (Yahoo 3年歷史 + 疊加當月證交所官方 STOCK_DAY 收盤價，避免美股休市日漏資料)
     if (batchHistory) {
       const allSyms = Array.from(new Set([...rawSymbols, compareSym, '^TWII', '0050', '00981A'].filter(Boolean)));
-      const results = await Promise.all(
+      const yfResults = await Promise.all(
         allSyms.map(async s => {
           const r = await fetchTwHistory(s, '3y');
           return { s, series: r ? extractDailySeries(r) : [] };
         })
       );
+
+      // 分批補齊當月證交所官方日收盤價（每批 3 檔避免證交所限流）
+      const twSyms = allSyms.filter(s => /^\d/.test(s));
+      const twseMap = {};
+      for (let i = 0; i < twSyms.length; i += 3) {
+        const chunk = twSyms.slice(i, i + 3);
+        const chunkRes = await Promise.all(chunk.map(async s => ({ s, rows: await fetchTwseCurrentMonth(s) })));
+        chunkRes.forEach(item => { twseMap[item.s] = item.rows; });
+      }
+
       const historyBySymbol = {};
-      for (const item of results) {
-        if (item.series.length > 0) historyBySymbol[item.s] = item.series;
+      for (const item of yfResults) {
+        const merged = mergeTwseMonthIntoSeries(item.series, twseMap[item.s]);
+        if (merged.length > 0) historyBySymbol[item.s] = merged;
       }
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
       return res.status(200).json({ historyBySymbol });
