@@ -91,6 +91,10 @@
             <i data-lucide="receipt" class="w-4 h-4 text-slate-400"></i>
             <span>紀錄</span>
           </button>
+          <button type="button" data-tab="watchlist" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-4 border-transparent text-slate-300 hover:bg-slate-800/60 hover:text-white">
+            <i data-lucide="star" class="w-4 h-4 text-slate-400"></i>
+            <span>自選股</span>
+          </button>
           <button type="button" data-tab="news" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-4 border-transparent text-slate-300 hover:bg-slate-800/60 hover:text-white">
             <i data-lucide="newspaper" class="w-4 h-4 text-slate-400"></i>
             <span>新聞</span>
@@ -153,6 +157,18 @@
 
       <!-- Main Content Area -->
       <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
+        <!-- 多券商帳戶標籤篩選列 -->
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 px-4 py-2.5 shadow-sm">
+          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400"></i>
+            <span>帳戶檢視：</span>
+          </div>
+          <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
+            <button type="button" data-acct-filter="ALL" class="acct-filter-btn px-3 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm">全部帳戶</button>
+            <button type="button" data-acct-filter="國泰" class="acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">國泰</button>
+            <button type="button" data-acct-filter="富邦" class="acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium">富邦</button>
+          </div>
+        </div>
         <!-- TAB 1: 資產 (ASSETS) -->
         <section id="tab-assets" class="tab-panel space-y-6">
           <!-- Top 4 KPI Cards -->
@@ -499,6 +515,10 @@
                 <canvas id="twr-compare-chart"></canvas>
               </div>
               <div id="twr-benchmark-cards" class="grid grid-cols-3 gap-2.5 text-center"></div>
+              <div class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <div class="text-xs font-bold text-slate-600 dark:text-slate-300">區間風險體檢</div>
+                <div id="risk-metrics-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs"></div>
+              </div>
             </div>
           </div>
 
@@ -528,6 +548,32 @@
                 </div>
                 <div id="calendar-grid" class="space-y-1.5"></div>
               </div>
+            </div>
+          </div>
+
+          <!-- 新資金再平衡買進計算機 -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+            <button type="button" data-collapse="rebalance-panel" class="collapse-toggle w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">新資金「再平衡」加碼計算機</h2>
+                <p class="text-xs text-slate-400 mt-0.5">設定理想持股比例，輸入本次加碼金額即算出建議買進股數</p>
+              </div>
+              <span class="text-xs font-medium text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                <span class="collapse-text">展開</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform"></i>
+              </span>
+            </button>
+            <div id="rebalance-panel" class="hidden px-5 pb-5 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4 text-sm">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-500">本次投入金額（元）：</span>
+                  <input id="rebalance-cash-input" type="number" value="30000" min="1000" step="1000" class="w-32 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums font-semibold" />
+                </div>
+                <span id="rebalance-target-sum" class="text-xs font-semibold text-slate-500">目標佔比合計：--%</span>
+              </div>
+              <div id="rebalance-rows" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+              <button id="run-rebalance-btn" type="button" class="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold">計算再平衡買進配置</button>
+              <div id="rebalance-result" class="hidden rounded-xl bg-slate-50 dark:bg-slate-800/70 p-3.5 text-xs space-y-1.5"></div>
             </div>
           </div>
 
@@ -855,9 +901,19 @@
                   </div>
                 </div>
 
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">備註（選填）</label>
-                  <input id="tx-note" type="text" placeholder="如：定期定額、除息入帳" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+                <div class="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">券商帳戶</label>
+                    <select id="tx-account" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                      <option value="國泰">國泰</option>
+                      <option value="富邦">富邦</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">備註（選填）</label>
+                    <input id="tx-note" type="text" placeholder="定期定額等" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+                  </div>
                 </div>
 
                 <button type="submit" class="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors">新增紀錄</button>
@@ -898,6 +954,42 @@
                   <tbody id="records-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: 自選股觀察清單 (WATCHLIST) -->
+        <section id="tab-watchlist" class="tab-panel hidden space-y-6">
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">自選股觀察清單</h2>
+                <p class="text-xs text-slate-400 mt-0.5">追蹤口袋名單即時報價與目標買進價，達標自動提示並支援一鍵轉買入</p>
+              </div>
+              <button id="refresh-watchlist-btn" type="button" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold">更新自選報價</button>
+            </div>
+
+            <form id="add-watchlist-form" class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-sm">
+              <input id="wl-symbol" type="text" required placeholder="股票代碼（如 2454）" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+              <input id="wl-target" type="number" step="0.1" min="0" required placeholder="目標買進價（元）" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums" />
+              <input id="wl-note" type="text" placeholder="觀察筆記（選填）" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+              <button type="submit" class="py-2 rounded-lg bg-slate-800 dark:bg-teal-600 hover:bg-slate-700 text-white font-semibold">加入自選股</button>
+            </form>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                <thead>
+                  <tr class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <th class="py-2.5 pr-3">股票</th>
+                    <th class="py-2.5 px-2 text-right">現價</th>
+                    <th class="py-2.5 px-2 text-right">目標買進價</th>
+                    <th class="py-2.5 px-2 text-right">距離目標</th>
+                    <th class="py-2.5 px-2">備註</th>
+                    <th class="py-2.5 pl-2 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="watchlist-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -1033,6 +1125,7 @@
           <div class="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
             <button type="button" data-scm-tab="ma" class="scm-tab-btn px-3 py-1.5 rounded-md bg-teal-600 text-white font-semibold shadow-sm">日線均線</button>
             <button type="button" data-scm-tab="river" class="scm-tab-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium">價值河流圖</button>
+            <button type="button" data-scm-tab="rev" class="scm-tab-btn px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 font-medium">基本面／營收</button>
           </div>
           <div id="scm-zone-badge" class="hidden px-2.5 py-1 rounded-full text-xs font-bold"></div>
         </div>
@@ -1131,7 +1224,7 @@
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
     const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
-    const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3d25pYmZ6dXpuZmtmdWt4b2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzI0NjQsImV4cCI6MjExMTEwODQ2NH0.SS8FiMnco8N6YONGguoXunG9JydfYsZGXBre1F0UE8Q';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
 
@@ -1152,7 +1245,13 @@
       supabaseUrl: DEFAULT_SUPABASE_URL,
       supabaseKey: DEFAULT_SUPABASE_ANON_KEY,
       geminiApiKey: '',
-      monthlyDivGoal: 20000
+      monthlyDivGoal: 20000,
+      accountFilter: 'ALL',
+      watchlist: [
+        { id: 'wl_1', symbol: '2454', name: '聯發科', targetPrice: 1200, note: '等待回測季線觀察' },
+        { id: 'wl_2', symbol: '00919', name: '群益台灣精選高息', targetPrice: 22.5, note: '季配息候選標的' }
+      ],
+      rebalanceTargets: {}
     };
 
     let allocationChart = null;
@@ -1201,7 +1300,9 @@
           supabaseUrl: state.supabaseUrl,
           supabaseKey: state.supabaseKey,
           geminiApiKey: state.geminiApiKey,
-          monthlyDivGoal: state.monthlyDivGoal
+          monthlyDivGoal: state.monthlyDivGoal,
+          watchlist: state.watchlist,
+          rebalanceTargets: state.rebalanceTargets
         }));
       } catch (e) {
         // Ignore storage error in restricted environments
@@ -1528,8 +1629,21 @@
       return ((low + high) / 2) * 100;
     }
 
+    function inferAccount(tx) {
+      if (tx.account) return tx.account;
+      const n = String(tx.note || '');
+      if (n.includes('富邦')) return '富邦';
+      if (n.includes('國泰')) return '國泰';
+      return '國泰';
+    }
+
+    function getScopedTransactions() {
+      if (state.accountFilter === 'ALL') return state.transactions;
+      return state.transactions.filter(t => inferAccount(t) === state.accountFilter);
+    }
+
     function analyzePortfolio() {
-      const sorted = [...state.transactions].sort((a, b) => a.date.localeCompare(b.date));
+      const sorted = [...getScopedTransactions()].sort((a, b) => a.date.localeCompare(b.date));
       const bySymbol = {};
       const annual = {};
       const allCashflows = [];
@@ -1657,10 +1771,73 @@
       };
     }
 
+    function renderWatchlistTab() {
+      const tbody = document.getElementById('watchlist-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = (state.watchlist || []).map(w => {
+        const curP = state.prices[w.symbol] || 0;
+        const diffPct = curP > 0 && w.targetPrice > 0 ? ((curP - w.targetPrice) / w.targetPrice) * 100 : null;
+        const hit = curP > 0 && w.targetPrice > 0 && curP <= w.targetPrice;
+        return `
+          <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${hit ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}">
+            <td class="py-3 pr-3">
+              <button type="button" data-wl-chart="${w.symbol}" class="wl-chart-btn text-left">
+                <div class="font-bold text-slate-900 dark:text-white hover:text-teal-600">${w.symbol}</div>
+                <div class="text-xs text-slate-500">${w.name || TW_STOCK_NAMES[w.symbol] || ''}</div>
+              </button>
+            </td>
+            <td class="py-3 px-2 text-right font-semibold">${curP > 0 ? curP : '--'}</td>
+            <td class="py-3 px-2 text-right font-semibold">${w.targetPrice}</td>
+            <td class="py-3 px-2 text-right">
+              ${hit
+                ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">已達買點！</span>'
+                : (diffPct !== null ? `<span class="text-xs text-slate-500">高出 +${diffPct.toFixed(1)}%</span>` : '--')}
+            </td>
+            <td class="py-3 px-2 text-xs text-slate-500">${w.note || ''}</td>
+            <td class="py-3 pl-2 text-right whitespace-nowrap space-x-1">
+              <button type="button" data-wl-buy="${w.symbol}" class="wl-buy-btn px-2 py-1 rounded-md bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold">轉買入</button>
+              <button type="button" data-wl-del="${w.id}" class="wl-del-btn px-2 py-1 rounded-md text-slate-400 hover:text-rose-500 text-xs">×</button>
+            </td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="6" class="py-6 text-center text-slate-400">尚無自選觀察標的</td></tr>';
+    }
+
+    function renderRebalancePanel(data) {
+      const rowsEl = document.getElementById('rebalance-rows');
+      const sumEl = document.getElementById('rebalance-target-sum');
+      if (!rowsEl || !sumEl) return;
+      const holdings = data.activeHoldings;
+      if (holdings.length === 0) {
+        rowsEl.innerHTML = '<div class="text-xs text-slate-400">尚無持倉標的</div>';
+        return;
+      }
+      const eq = Number((100 / holdings.length).toFixed(1));
+      let totalTgt = 0;
+      rowsEl.innerHTML = holdings.map(h => {
+        const curPct = data.totalMarketValue > 0 ? ((h.marketValue / data.totalMarketValue) * 100).toFixed(1) : '0.0';
+        const tgt = state.rebalanceTargets[h.symbol] !== undefined ? state.rebalanceTargets[h.symbol] : eq;
+        totalTgt += Number(tgt);
+        return `
+          <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-lg">
+            <div class="min-w-0"><strong>${h.symbol}</strong> ${h.name} <span class="text-slate-400">(目前 ${curPct}%)</span></div>
+            <div class="flex items-center gap-1 shrink-0">
+              <span class="text-slate-400">目標</span>
+              <input type="number" step="1" min="0" max="100" value="${tgt}" data-rebal-sym="${h.symbol}" class="rebal-tgt-input w-16 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-right tabular-nums font-semibold" />
+              <span>%</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      sumEl.textContent = `目標佔比合計：${totalTgt.toFixed(1)}%`;
+    }
+
     function renderAll() {
       const data = analyzePortfolio();
       renderAssetsTab(data);
       renderHoldingsTab(data);
+      renderRebalancePanel(data);
+      renderWatchlistTab();
       renderRecordsTab();
       renderNewsTab();
       lucide.createIcons();
@@ -2121,6 +2298,45 @@
       const pctEl = document.getElementById('trend-period-pct');
       pctEl.textContent = fmtPct(periodTwrPct);
       pctEl.className = `text-lg font-bold tabular-nums ${pnlColorClass(periodTwrPct)}`;
+
+      // 計算區間風險體檢 (最大回撤 MDD / 紅盤勝率 / 單日最大獲利 & 虧損)
+      let peakMv = 0, maxDrawdown = 0, winDays = 0;
+      let bestDay = null, worstDay = null;
+      for (const d of filtered) {
+        const mvVal = d.mv || data.totalMarketValue;
+        if (mvVal > peakMv) peakMv = mvVal;
+        if (peakMv > 0) {
+          const dd = ((mvVal - peakMv) / peakMv) * 100;
+          if (dd < maxDrawdown) maxDrawdown = dd;
+        }
+        if (d.daily > 0) winDays++;
+        if (!bestDay || d.daily > bestDay.daily) bestDay = d;
+        if (!worstDay || d.daily < worstDay.daily) worstDay = d;
+      }
+      const winRate = filtered.length > 0 ? (winDays / filtered.length) * 100 : 0;
+      const riskEl = document.getElementById('risk-metrics-grid');
+      if (riskEl) {
+        riskEl.innerHTML = `
+          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-3">
+            <div class="text-slate-500 dark:text-slate-400">最大回撤 (MDD)</div>
+            <div class="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">${maxDrawdown.toFixed(2)}%</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-3">
+            <div class="text-slate-500 dark:text-slate-400">紅盤勝率</div>
+            <div class="mt-1 text-sm font-bold text-slate-900 dark:text-white tabular-nums">${winRate.toFixed(1)}% <span class="text-[11px] font-normal text-slate-400">(${winDays}/${filtered.length}日)</span></div>
+          </div>
+          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-3">
+            <div class="text-slate-500 dark:text-slate-400">單日最大獲利</div>
+            <div class="mt-1 text-sm font-bold text-red-600 dark:text-red-400 tabular-nums">${bestDay ? fmtWan(bestDay.daily) : '--'}</div>
+            <div class="text-[10px] text-slate-400">${bestDay ? bestDay.date : ''}</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-3">
+            <div class="text-slate-500 dark:text-slate-400">單日最大虧損</div>
+            <div class="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">${worstDay ? fmtWan(worstDay.daily) : '--'}</div>
+            <div class="text-[10px] text-slate-400">${worstDay ? worstDay.date : ''}</div>
+          </div>
+        `;
+      }
 
       // 1) 資產走勢圖（暖橘面積圖）
       const avCtx = document.getElementById('asset-value-chart').getContext('2d');
@@ -2808,6 +3024,49 @@
             }
           }
         });
+      } else if (scmActiveTab === 'rev') {
+        zoneBadge.classList.add('hidden');
+        const rev = scmCurrentContext.revenue;
+        const val = scmCurrentContext.valuation;
+        document.getElementById('scm-subtitle').textContent = rev
+          ? `證交所基本面與月營收統計（資料年月：${rev.ym}）`
+          : '基本面與估值摘要（ETF 或查無月營收資料時僅顯示估值指標）';
+
+        const badges = [];
+        if (val?.pe) badges.push(`<span class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold">本益比 PE ${val.pe}x</span>`);
+        if (val?.pb) badges.push(`<span class="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold">淨值比 PB ${val.pb}</span>`);
+        if (val?.yield) badges.push(`<span class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">殖利率 ${val.yield}%</span>`);
+        if (rev) {
+          badges.push(`<span class="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 font-semibold">單月營收 ${rev.monthRevYi} 億</span>`);
+          badges.push(`<span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold ${pnlColorClass(rev.yoy || 0)}">月營收 YoY ${rev.yoy !== null ? fmtPct(rev.yoy) : '--'}</span>`);
+          badges.push(`<span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold ${pnlColorClass(rev.cumYoy || 0)}">累計營收 YoY ${rev.cumYoy !== null ? fmtPct(rev.cumYoy) : '--'}</span>`);
+        }
+        document.getElementById('scm-ma-badges').innerHTML = badges.join('') || '<span class="text-slate-400">暫無基本面估值數據</span>';
+
+        const revLabels = rev ? ['月增率 MoM (%)', '單月年增 YoY (%)', '累計年增 YoY (%)'] : ['本益比 (x)', '淨值比 (x)', '殖利率 (%)'];
+        const revVals = rev ? [rev.mom || 0, rev.yoy || 0, rev.cumYoy || 0] : [val?.pe || 0, val?.pb || 0, val?.yield || 0];
+
+        stockKlineChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: revLabels,
+            datasets: [{
+              label: rev ? '營收成長率 (%)' : '估值指標',
+              data: revVals,
+              backgroundColor: revVals.map(v => v >= 0 ? '#EF4444' : '#10B981'),
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { grid: { color: 'rgba(148,163,184,0.15)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
       } else {
         // 價值河流圖：個股用本益比(PE)河流圖，ETF/無PE標的用年線位階河流圖
         const step = fullSeries.length > 90 ? Math.max(1, Math.floor(fullSeries.length / 75)) : 1;
@@ -2932,6 +3191,7 @@
 
       let fullSeries = [];
       let valuation = null;
+      let revenue = null;
       if (window.location.protocol.startsWith('http')) {
         try {
           const res = await fetch('/api/market?historySymbol=' + encodeURIComponent(sym));
@@ -2939,6 +3199,7 @@
             const json = await res.json();
             if (Array.isArray(json.series) && json.series.length > 20) fullSeries = json.series;
             if (json.valuation) valuation = json.valuation;
+            if (json.revenue) revenue = json.revenue;
           }
         } catch (_) {}
       }
@@ -2950,7 +3211,7 @@
       }
 
       const userTxs = (stock?.txList || []).filter(t => t.type === '買入' || t.type === '賣出');
-      scmCurrentContext = { sym, name, fullSeries, valuation, isReal, userTxs, avgCost: stock?.avgCost || 0 };
+      scmCurrentContext = { sym, name, fullSeries, valuation, revenue, isReal, userTxs, avgCost: stock?.avgCost || 0 };
       renderScmActiveChart();
 
       document.getElementById('scm-trades-summary').innerHTML = userTxs.length > 0
@@ -3119,11 +3380,11 @@
       document.getElementById('calc-fee-tax-chk').checked = state.calcFeeTax;
       document.getElementById('fee-discount-select').value = String(state.feeDiscount);
 
-      const list = state.transactions
+      const list = getScopedTransactions()
         .filter(t => state.filterTxType === 'ALL' || t.type === state.filterTxType)
         .sort((a, b) => b.date.localeCompare(a.date));
 
-      document.getElementById('records-total-title').textContent = `交易紀錄（共 ${state.transactions.length} 筆）`;
+      document.getElementById('records-total-title').textContent = `交易紀錄（共 ${getScopedTransactions().length} 筆）`;
 
       const badgeMap = {
         '買入': 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300',
@@ -3508,6 +3769,103 @@
         renderScmActiveChart();
       });
 
+      // 多券商帳戶切換
+      document.querySelectorAll('.acct-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.accountFilter = btn.dataset.acctFilter;
+          document.querySelectorAll('.acct-filter-btn').forEach(b => {
+            b.className = b.dataset.acctFilter === state.accountFilter
+              ? 'acct-filter-btn px-3 py-1 rounded-md bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold shadow-sm'
+              : 'acct-filter-btn px-3 py-1 rounded-md text-slate-600 dark:text-slate-300 font-medium';
+          });
+          renderAll();
+        });
+      });
+
+      // 自選股觀察清單操作
+      document.getElementById('add-watchlist-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const sym = document.getElementById('wl-symbol').value.trim();
+        const tgt = Number(document.getElementById('wl-target').value);
+        const note = document.getElementById('wl-note').value.trim();
+        if (!sym || !(tgt > 0)) return;
+        state.watchlist.push({ id: 'wl_' + Date.now(), symbol: sym, name: TW_STOCK_NAMES[sym] || sym, targetPrice: tgt, note });
+        saveState();
+        e.target.reset();
+        renderWatchlistTab();
+        if (window.location.protocol.startsWith('http')) syncLivePrices(true);
+        showToast(`已將 ${sym} 加入自選觀察清單`);
+      });
+
+      document.getElementById('refresh-watchlist-btn').addEventListener('click', () => syncLivePrices(false));
+
+      document.getElementById('watchlist-tbody').addEventListener('click', e => {
+        const delBtn = e.target.closest('.wl-del-btn');
+        if (delBtn) {
+          state.watchlist = state.watchlist.filter(w => w.id !== delBtn.dataset.wlDel);
+          saveState();
+          renderWatchlistTab();
+          return;
+        }
+        const chartBtn = e.target.closest('.wl-chart-btn');
+        if (chartBtn) {
+          openStockChartModal(chartBtn.dataset.wlChart);
+          return;
+        }
+        const buyBtn = e.target.closest('.wl-buy-btn');
+        if (buyBtn) {
+          const sym = buyBtn.dataset.wlBuy;
+          document.querySelector('.nav-btn[data-tab="records"]').click();
+          document.getElementById('tx-symbol').value = sym;
+          document.getElementById('tx-name').value = TW_STOCK_NAMES[sym] || '';
+          if (state.prices[sym]) document.getElementById('tx-price').value = state.prices[sym];
+          document.getElementById('tx-shares').focus();
+          showToast(`已帶入 ${sym} 至新增買入表單`);
+        }
+      });
+
+      // 再平衡計算機
+      document.getElementById('rebalance-rows').addEventListener('change', e => {
+        const inp = e.target.closest('.rebal-tgt-input');
+        if (inp) {
+          state.rebalanceTargets[inp.dataset.rebalSym] = Number(inp.value) || 0;
+          saveState();
+          renderRebalancePanel(analyzePortfolio());
+        }
+      });
+
+      document.getElementById('run-rebalance-btn').addEventListener('click', () => {
+        const data = analyzePortfolio();
+        const holdings = data.activeHoldings;
+        const cash = Number(document.getElementById('rebalance-cash-input').value) || 0;
+        const resEl = document.getElementById('rebalance-result');
+        if (holdings.length === 0 || cash <= 0) return;
+        const totalAfter = data.totalMarketValue + cash;
+        const eq = 100 / holdings.length;
+        const rawTargets = holdings.map(h => state.rebalanceTargets[h.symbol] !== undefined ? Number(state.rebalanceTargets[h.symbol]) : eq);
+        const pctSum = rawTargets.reduce((a, b) => a + b, 0) || 100;
+
+        const deficits = holdings.map((h, i) => {
+          const w = rawTargets[i] / pctSum;
+          const idealMv = totalAfter * w;
+          const gap = Math.max(0, idealMv - h.marketValue);
+          return { h, gap };
+        });
+        const totalGap = deficits.reduce((a, b) => a + b.gap, 0);
+        resEl.classList.remove('hidden');
+        if (totalGap <= 0) {
+          resEl.innerHTML = '<div>目前持股配置已貼近目標比例，可平均加碼！</div>';
+          return;
+        }
+        resEl.innerHTML = deficits
+          .filter(d => d.gap > 0)
+          .map(d => {
+            const alloc = (d.gap / totalGap) * cash;
+            const estShares = d.h.curPrice > 0 ? Math.floor(alloc / d.h.curPrice) : 0;
+            return `<div class="flex justify-between"><span><strong>${d.h.symbol} ${d.h.name}</strong></span><span>建議買進 <strong>${fmtMoney(alloc)}</strong>（約 <strong>${estShares.toLocaleString('zh-TW')} 股</strong>）</span></div>`;
+          }).join('');
+      });
+
       document.getElementById('cal-prev-btn').addEventListener('click', () => {
         calMonth--;
         if (calMonth < 0) { calMonth = 11; calYear--; }
@@ -3520,7 +3878,7 @@
       });
 
       // Tab Switching
-      const tabTitles = { assets: '資產總覽', holdings: '持倉明細', records: '交易與配息紀錄', news: '台股新聞搜尋' };
+      const tabTitles = { assets: '資產總覽', holdings: '持倉明細', records: '交易與配息紀錄', watchlist: '自選股觀察清單', news: '台股新聞搜尋' };
       document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const tab = btn.dataset.tab;
@@ -3648,7 +4006,7 @@
       // Fetch Live Prices from Vercel Serverless API (/api/prices)
       async function syncLivePrices(silent = false) {
         const lbl = document.getElementById('refresh-prices-label');
-        const symbols = Array.from(new Set(state.transactions.map(t => t.symbol.trim()).filter(Boolean)));
+        const symbols = Array.from(new Set([...state.transactions.map(t => t.symbol.trim()), ...(state.watchlist || []).map(w => w.symbol.trim())].filter(Boolean)));
         if (symbols.length === 0) return;
         lbl.textContent = '更新中...';
         try {
@@ -4074,6 +4432,7 @@
         const date = document.getElementById('tx-date').value;
         const shares = Number(document.getElementById('tx-shares').value);
         const price = Number(document.getElementById('tx-price').value);
+        const account = document.getElementById('tx-account').value;
         const note = document.getElementById('tx-note').value.trim();
 
         const newTx = {
@@ -4084,7 +4443,8 @@
           date,
           shares,
           price,
-          note
+          account,
+          note: note || (account !== '國泰' ? account : '')
         };
         state.transactions.push(newTx);
         pushTransactionToCloud(newTx);
