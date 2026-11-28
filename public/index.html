@@ -1351,7 +1351,7 @@
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
     const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
-    const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3d25pYmZ6dXpuZmtmdWt4b2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzI0NjQsImV4cCI6MjExMTEwODQ2NH0.SS8FiMnco8N6YONGguoXunG9JydfYsZGXBre1F0UE8Q';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
 
@@ -4878,20 +4878,135 @@
         });
       });
 
-      // Portfolio Smart Analysis
+      // Portfolio Smart Analysis (基本面 / 技術面 / 籌碼面 / 風險警訊)
       document.getElementById('run-portfolio-analysis-btn').addEventListener('click', () => {
         const data = analyzePortfolio();
         const out = document.getElementById('portfolio-analysis-output');
         out.classList.remove('hidden');
         const sorted = [...data.activeHoldings].sort((a, b) => b.marketValue - a.marketValue);
+        const totalMv = data.totalMarketValue || 0;
+        if (sorted.length === 0 || totalMv <= 0) {
+          out.innerHTML = '<p class="text-slate-500">目前尚無持倉部位，請先新增或匯入交易紀錄。</p>';
+          return;
+        }
+
         const top = sorted[0];
-        const topPct = top && data.totalMarketValue > 0 ? ((top.marketValue / data.totalMarketValue) * 100).toFixed(1) : 0;
+        const topPct = ((top.marketValue / totalMv) * 100);
         const etfValue = sorted.filter(h => isEtf(h.symbol)).reduce((acc, h) => acc + h.marketValue, 0);
-        const etfPct = data.totalMarketValue > 0 ? ((etfValue / data.totalMarketValue) * 100).toFixed(1) : 0;
+        const etfPct = ((etfValue / totalMv) * 100);
+
+        // 1. 穿透真實持股計算
+        const agg = {};
+        sorted.forEach(h => {
+          const cons = liveEtfHoldingsMap[h.symbol];
+          if (Array.isArray(cons) && cons.length > 0) {
+            cons.forEach(c => {
+              if (!agg[c.symbol]) agg[c.symbol] = { symbol: c.symbol, name: c.name || TW_STOCK_NAMES[c.symbol] || c.symbol, val: 0 };
+              agg[c.symbol].val += h.marketValue * (c.weight / 100);
+            });
+          } else {
+            if (!agg[h.symbol]) agg[h.symbol] = { symbol: h.symbol, name: h.name, val: 0 };
+            agg[h.symbol].val += h.marketValue;
+          }
+        });
+        const topUnderlying = Object.values(agg).sort((a, b) => b.val - a.val)[0];
+        const topUnderPct = topUnderlying ? (topUnderlying.val / totalMv) * 100 : 0;
+
+        // 2. 基本面 & 配息體質
+        const proj = computeProjectedDividends(data);
+        const slowFillers = sorted.filter(h => {
+          const st = liveFillStats[h.symbol];
+          return st && (st.fillRate < 80 || st.latestFilled === false);
+        });
+        const premiumEtfs = sorted.filter(h => {
+          const info = liveEtfNavMap[h.symbol];
+          return info && Number(info.premiumPct) >= 1.0;
+        });
+
+        // 3. 技術面 & 相對大盤動能
+        const twiiPerf = DEMO_PERF['^TWII'] || { d1: 0, d5: 0, d20: 0, ytd: 0 };
+        const strongHoldings = [];
+        const weakHoldings = [];
+        const underwaterHoldings = [];
+        sorted.forEach(h => {
+          const p = DEMO_PERF[h.symbol];
+          if (p) {
+            if (p.d20 >= (twiiPerf.d20 || 0) + 2) strongHoldings.push(`${h.symbol} ${h.name} (${fmtPct(p.d20)})`);
+            if (p.d20 < 0 || p.d20 <= (twiiPerf.d20 || 0) - 3) weakHoldings.push(`${h.symbol} ${h.name} (${fmtPct(p.d20)})`);
+          }
+          if (h.unrealized < 0) {
+            const lossPct = h.totalCost > 0 ? (h.unrealized / h.totalCost) * 100 : 0;
+            underwaterHoldings.push(`${h.symbol} ${h.name} (${fmtPct(lossPct)})`);
+          }
+        });
+
+        // 4. 籌碼面 & 資券
+        const instiBuy = [];
+        const instiSell = [];
+        const retailTrap = [];
+        sorted.forEach(h => {
+          const c = liveChipsMap[h.symbol];
+          if (!c) return;
+          if (c.total > 500) instiBuy.push(`${h.symbol} ${h.name} (+${Math.round(c.total).toLocaleString('zh-TW')}張)`);
+          else if (c.total < -500) {
+            instiSell.push(`${h.symbol} ${h.name} (${Math.round(c.total).toLocaleString('zh-TW')}張)`);
+            if (c.marginDiff > 100) retailTrap.push(`${h.symbol} ${h.name}`);
+          }
+        });
+
+        // 5. 風險清單（實話實說）
+        const risks = [];
+        if (topPct >= 25) {
+          risks.push(`<strong>單一部位集中風險：</strong>最大持股 <strong>${top.symbol} ${top.name}</strong> 佔總資產 <strong>${topPct.toFixed(1)}%</strong>，單一標的波動將直接左右整體損益。`);
+        }
+        if (topUnderlying && topUnderPct >= 20) {
+          risks.push(`<strong>穿透權重集中：</strong>加計 ETF 成分股後，實際暴露在 <strong>${topUnderlying.symbol} ${topUnderlying.name}</strong> 達 <strong>${topUnderPct.toFixed(1)}%</strong>，需留意單一權值股或產業修正風險。`);
+        }
+        const levEtfs = sorted.filter(h => /L$|R$/.test(h.symbol));
+        if (levEtfs.length > 0) {
+          const levNames = levEtfs.map(h => `${h.symbol} ${h.name} (${((h.marketValue / totalMv) * 100).toFixed(1)}%)`).join('、');
+          risks.push(`<strong>槓桿/反向 ETF 波動耗損：</strong>持有 <strong>${levNames}</strong>，這類商品每日複利再平衡，盤整震盪時會有淨值耗損，不宜當成傳統領息存股長期放著不管理。`);
+        }
+        if (slowFillers.length > 0) {
+          risks.push(`<strong>貼息／填息偏慢提醒：</strong><strong>${slowFillers.map(h => `${h.symbol} ${h.name}`).join('、')}</strong> 近期處於貼息狀態或歷史填息率低於 80%，需留意「賺了股息、賠了價差」。`);
+        }
+        if (premiumEtfs.length > 0) {
+          risks.push(`<strong>ETF 溢價過高：</strong><strong>${premiumEtfs.map(h => `${h.symbol} (+${liveEtfNavMap[h.symbol].premiumPct.toFixed(2)}%)`).join('、')}</strong> 溢價超過 1%，現階段追價有買貴風險。`);
+        }
+        if (retailTrap.length > 0) {
+          risks.push(`<strong>籌碼轉弱警訊：</strong><strong>${retailTrap.join('、')}</strong> 呈現「三大法人賣超、融資卻逆勢增加」，短線籌碼較為凌亂。`);
+        }
+        if (data.portfolioXirr > 25) {
+          risks.push(`<strong>高報酬伴隨高回撤風險：</strong>目前組合年化報酬（XIRR）達 <strong>${fmtPct(data.portfolioXirr)}</strong>，處於偏高水準，建議對照上方「最大回撤 (MDD)」並預留現金緩衝，避免多頭反轉時帳面獲利大幅回吐。`);
+        }
+        if (risks.length === 0) {
+          risks.push('目前各持股集中度、籌碼與填息表現皆屬穩健，仍建議維持每季檢視再平衡比例與除息日曆。');
+        }
+
         out.innerHTML = `
-          <p><strong>集中度檢視：</strong>目前共持有 <strong>${sorted.length}</strong> 檔標的，最大持股為 <strong>${top ? `${top.symbol} ${top.name}` : '無'}</strong>（佔比 <strong>${topPct}%</strong>）。${Number(topPct) > 40 ? '單一標的佔比偏高，建議留意波動風險。' : '單一標的集中度控制得宜。'}</p>
-          <p><strong>資產類型分佈：</strong>ETF 佔比約 <strong>${etfPct}%</strong>，個股佔比約 <strong>${(100 - Number(etfPct)).toFixed(1)}%</strong>。</p>
-          <p><strong>配息與稅務效率：</strong>累計實領股利 <strong>${fmtMoney(data.totalDividend)}</strong>，總年化報酬率（XIRR）為 <strong>${fmtPct(data.portfolioXirr)}</strong>。</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs leading-relaxed">
+            <div class="rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-100 dark:border-indigo-900/50 p-3.5 space-y-1.5">
+              <div class="font-bold text-sm text-indigo-700 dark:text-indigo-300">📊 基本面與配息體質</div>
+              <p>共持有 <strong>${sorted.length}</strong> 檔（ETF <strong>${etfPct.toFixed(1)}%</strong> / 個股 <strong>${(100 - etfPct).toFixed(1)}%</strong>），預估未來 12 個月可領股利 <strong>${fmtMoney(proj.totalProjectedAnnual)}</strong>。</p>
+              <p>組合成本殖利率（YOC）為 <strong>${proj.portfolioYoc.toFixed(2)}%</strong>，累計實領股利 <strong>${fmtMoney(data.totalDividend)}</strong>，總 XIRR <strong>${fmtPct(data.portfolioXirr)}</strong>。</p>
+            </div>
+            <div class="rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-100 dark:border-indigo-900/50 p-3.5 space-y-1.5">
+              <div class="font-bold text-sm text-teal-700 dark:text-teal-300">📈 技術面與強弱動能（近 20 日）</div>
+              <p><strong>強勢跑贏大盤：</strong>${strongHoldings.length > 0 ? strongHoldings.slice(0, 3).join('、') : '目前走勢多貼近大盤（加權近20日 ' + fmtPct(twiiPerf.d20 || 0) + '）'}。</p>
+              <p><strong>轉弱／破成本標的：</strong>${weakHoldings.length > 0 ? weakHoldings.slice(0, 3).join('、') : '無明顯落後大盤標的'}${underwaterHoldings.length > 0 ? `；帳面虧損中：${underwaterHoldings.join('、')}` : '；目前全數持股皆在成本線之上'}。</p>
+            </div>
+            <div class="rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-100 dark:border-indigo-900/50 p-3.5 space-y-1.5">
+              <div class="font-bold text-sm text-amber-700 dark:text-amber-300">🏦 籌碼面與法人動向</div>
+              <p><strong>三大法人買超主力：</strong>${instiBuy.length > 0 ? instiBuy.slice(0, 3).join('、') : '目前持倉無顯著千張以上法人大買標的（或請至持倉頁點「查詢盤後籌碼」更新）'}。</p>
+              <p><strong>法人調節賣超：</strong>${instiSell.length > 0 ? instiSell.slice(0, 3).join('、') : '無明顯法人大舉倒貨標的'}。</p>
+            </div>
+            <div class="rounded-xl bg-red-50/80 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 p-3.5 space-y-1.5">
+              <div class="font-bold text-sm text-red-700 dark:text-red-300">⚠️ 潛在風險與注意警訊</div>
+              <ul class="list-disc pl-4 space-y-1 text-slate-700 dark:text-slate-200">
+                ${risks.map(r => `<li>${r}</li>`).join('')}
+              </ul>
+            </div>
+          </div>
         `;
       });
 
