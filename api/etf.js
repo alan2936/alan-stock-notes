@@ -113,6 +113,29 @@ const FALLBACK_ETF_HOLDINGS = {
     { symbol: '2379', name: '瑞昱', weight: 3.2 },
     { symbol: '4938', name: '和碩', weight: 3.1 }
   ],
+  '00850': [
+    { symbol: '2330', name: '台積電', weight: 30.92 },
+    { symbol: '2454', name: '聯發科', weight: 8.78 },
+    { symbol: '2317', name: '鴻海', weight: 4.19 },
+    { symbol: '2308', name: '台達電', weight: 3.35 },
+    { symbol: '3711', name: '日月光投控', weight: 2.70 },
+    { symbol: '2891', name: '中信金', weight: 1.92 },
+    { symbol: '1303', name: '南亞', weight: 1.84 },
+    { symbol: '2881', name: '富邦金', weight: 1.83 },
+    { symbol: '2303', name: '聯電', weight: 1.69 }
+  ],
+  '00982A': [
+    { symbol: '2454', name: '聯發科', weight: 9.07 },
+    { symbol: '2330', name: '台積電', weight: 9.04 },
+    { symbol: '3105', name: '穩懋', weight: 8.08 },
+    { symbol: '6531', name: '愛普*', weight: 6.20 },
+    { symbol: '6139', name: '亞翔', weight: 6.18 },
+    { symbol: '3491', name: '昇達科', weight: 5.07 },
+    { symbol: '2383', name: '台光電', weight: 3.43 },
+    { symbol: '3017', name: '奇鋐', weight: 3.40 },
+    { symbol: '6223', name: '旺矽', weight: 3.05 },
+    { symbol: '3008', name: '大立光', weight: 2.95 }
+  ],
   '00981A': [
     { symbol: '2330', name: '台積電', weight: 10.2 },
     { symbol: '2317', name: '鴻海', weight: 6.8 },
