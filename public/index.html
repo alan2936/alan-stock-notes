@@ -366,6 +366,74 @@
             </div>
           </div>
 
+          <!-- 未來 12 個月配息預測 & 成本殖利率 (YOC) -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">未來 12 個月配息預測 × 成本殖利率 (YOC)</h2>
+                <p class="text-xs text-slate-400 mt-0.5">依現有持股與過去一年配息紀錄推估未來一年每月入帳股息，並計算買入成本真實殖利率</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span id="forecast-annual-div-badge" class="px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 font-bold tabular-nums">預估年息 NT$ 0</span>
+                <span id="forecast-portfolio-yoc-badge" class="px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-bold tabular-nums">組合 YOC 0.00%</span>
+              </div>
+            </div>
+            <div class="relative h-48">
+              <canvas id="future-div-chart"></canvas>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left">
+                <thead>
+                  <tr class="text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <th class="py-2 pr-2">股票</th>
+                    <th class="py-2 px-2 text-right">近一年每股配息</th>
+                    <th class="py-2 px-2 text-right">預估年領股利</th>
+                    <th class="py-2 px-2 text-right">目前殖利率</th>
+                    <th class="py-2 pl-2 text-right">成本殖利率 (YOC)</th>
+                  </tr>
+                </thead>
+                <tbody id="yoc-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 二代健保補充保費 & 股利節稅試算 -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+            <button type="button" data-collapse="div-tax-panel" class="collapse-toggle w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">二代健保補充保費 & 股利節稅試算</h2>
+                <p class="text-xs text-slate-400 mt-0.5">比較「合併計稅（8.5% 抵減，上限 8 萬）」vs「28% 分離課稅」並扣除 2.11% 補充保費，算出稅後實拿股息</p>
+              </div>
+              <span class="text-xs font-medium text-teal-600 dark:text-teal-400 flex items-center gap-1 shrink-0 ml-2">
+                <span class="collapse-text">展開</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform"></i>
+              </span>
+            </button>
+            <div id="div-tax-panel" class="hidden px-5 pb-5 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">年度預估股利總額（元）</label>
+                  <input id="tax-annual-div-input" type="number" min="0" step="1000" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums font-semibold" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">單次配息 ≥ 2 萬金額（計 2.11% 健保）</label>
+                  <input id="tax-nhi-base-input" type="number" min="0" step="1000" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 tabular-nums font-semibold" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">綜所稅邊際稅率</label>
+                  <select id="tax-marginal-rate" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold">
+                    <option value="0.05">5%（年所得淨額 59 萬以下）</option>
+                    <option value="0.12" selected>12%（年所得淨額 59~133 萬）</option>
+                    <option value="0.20">20%（年所得淨額 133~266 萬）</option>
+                    <option value="0.30">30%（年所得淨額 266~498 萬）</option>
+                    <option value="0.40">40%（年所得淨額 498 萬以上）</option>
+                  </select>
+                </div>
+              </div>
+              <div id="div-tax-result" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs"></div>
+            </div>
+          </div>
+
           <!-- Collapsible: DCA & DRIP Calculators -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- DCA Simulator -->
@@ -649,6 +717,32 @@
             </div>
           </div>
 
+          <!-- 填息天數與歷史填息率追蹤 -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">填息天數與歷史填息率追蹤</h2>
+                <p class="text-xs text-slate-400 mt-0.5">統計過去五年除息後的填息成功率、平均填息交易日數與最近一次填息狀態</p>
+              </div>
+              <button id="refresh-fill-stats-btn" type="button" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium">更新填息統計</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                <thead>
+                  <tr class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <th class="py-2 pr-3">股票</th>
+                    <th class="py-2 px-2 text-right">統計次數</th>
+                    <th class="py-2 px-2 text-right">填息成功率</th>
+                    <th class="py-2 px-2 text-right">平均填息天數</th>
+                    <th class="py-2 px-2 text-right">最快填息</th>
+                    <th class="py-2 pl-2 text-right">最近一次除息</th>
+                  </tr>
+                </thead>
+                <tbody id="fill-div-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- Current Holdings Table -->
           <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -656,7 +750,14 @@
                 <h2 class="text-base font-bold text-slate-900 dark:text-white">目前持倉</h2>
                 <p class="text-xs text-slate-400 mt-0.5">點擊現價欄位可直接手動更新報價並即時重算損益</p>
               </div>
-              <span id="holdings-count-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">0 檔持股</span>
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="text-xs text-slate-500 flex items-center gap-1">
+                  <span>ETF 溢價警示</span>
+                  <input id="etf-premium-threshold" type="number" step="0.1" min="0.1" max="10" value="1.0" class="w-14 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-right tabular-nums font-semibold" />
+                  <span>%</span>
+                </label>
+                <span id="holdings-count-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">0 檔持股</span>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left">
@@ -675,6 +776,18 @@
                 <tbody id="current-holdings-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums"></tbody>
               </table>
             </div>
+          </div>
+
+          <!-- 跨 ETF 成分股重疊透視（穿透真實持股） -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm space-y-3.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">跨 ETF 成分股重疊透視（穿透真實持股）</h2>
+                <p class="text-xs text-slate-400 mt-0.5">將個股部位與所持 ETF（如 0050、00878、00919、00981A 等）底層權重加總，檢視是否過度集中於單一權值股</p>
+              </div>
+              <span id="overlap-concentration-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">計算中</span>
+            </div>
+            <div id="etf-overlap-container" class="space-y-2.5"></div>
           </div>
 
           <!-- Stock Performance Table -->
@@ -797,11 +910,12 @@
 
               <!-- 逐筆交易 CSV -->
               <div id="import-panel-tx" class="space-y-3">
-                <p class="text-xs text-slate-400">支援匯入標準 CSV 欄位：代碼,名稱,類型(買入/賣出/股利/配股),日期(YYYY-MM-DD),股數,價格,備註</p>
+                <p class="text-xs text-slate-400">支援標準 CSV，並可自動辨識「集保 e 手掌握」及國泰／富邦／元大／永豐／凱基等常見券商匯出格式（含民國年與千分位逗號）。</p>
                 <div class="flex flex-wrap items-center gap-2">
+                  <input id="csv-import-account" type="text" list="broker-presets" placeholder="歸屬帳戶（選填，如國泰）" class="w-40 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
                   <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium cursor-pointer transition-colors">
                     <i data-lucide="upload" class="w-4 h-4 text-teal-600"></i>
-                    <span>選擇交易 CSV 匯入</span>
+                    <span>選擇交易 / 集保 CSV 匯入</span>
                     <input id="csv-import-input" type="file" accept=".csv" class="hidden" />
                   </label>
                   <button id="download-sample-csv-btn" type="button" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">下載 CSV 範本</button>
@@ -1237,7 +1351,7 @@
     const STORAGE_KEY = 'alan_stock_notes_state_v2';
     // 若想直接寫死在程式碼中，可將您的 Supabase Project URL 與 anon key 填入下方引號內：
     const DEFAULT_SUPABASE_URL = 'https://twwnibfzuznfkfukxofy.supabase.co';
-    const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3d25pYmZ6dXpuZmtmdWt4b2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzI0NjQsImV4cCI6MjExMTEwODQ2NH0.SS8FiMnco8N6YONGguoXunG9JydfYsZGXBre1F0UE8Q';
+    const DEFAULT_SUPABASE_ANON_KEY = '';
     let supabaseClient = null;
     let currentUser = null;
 
@@ -1283,6 +1397,60 @@
     let trendRange = '1M';
     let twrVisible = { twii: true, s0050: true, s00981A: true };
     let monthlyDivChart = null;
+    let futureDivChart = null;
+    let liveEtfNavMap = {
+      '0050': { symbol: '0050', nav: 194.2, marketPrice: 194.8, premiumPct: 0.31 },
+      '0056': { symbol: '0056', nav: 37.1, marketPrice: 37.25, premiumPct: 0.40 },
+      '00878': { symbol: '00878', nav: 22.35, marketPrice: 22.40, premiumPct: 0.22 },
+      '00919': { symbol: '00919', nav: 23.60, marketPrice: 23.90, premiumPct: 1.27 },
+      '00981A': { symbol: '00981A', nav: 15.80, marketPrice: 15.85, premiumPct: 0.32 }
+    };
+    let liveEtfHoldingsMap = {
+      '0050': [
+        { symbol: '2330', name: '台積電', weight: 55.2 }, { symbol: '2317', name: '鴻海', weight: 4.9 },
+        { symbol: '2454', name: '聯發科', weight: 4.5 }, { symbol: '2308', name: '台達電', weight: 2.1 },
+        { symbol: '2382', name: '廣達', weight: 1.9 }, { symbol: '2881', name: '富邦金', weight: 1.8 }
+      ],
+      '006208': [
+        { symbol: '2330', name: '台積電', weight: 55.0 }, { symbol: '2317', name: '鴻海', weight: 4.9 },
+        { symbol: '2454', name: '聯發科', weight: 4.5 }, { symbol: '2308', name: '台達電', weight: 2.1 }
+      ],
+      '0056': [
+        { symbol: '2603', name: '長榮', weight: 4.8 }, { symbol: '2303', name: '聯電', weight: 4.3 },
+        { symbol: '3231', name: '緯創', weight: 4.1 }, { symbol: '2357', name: '華碩', weight: 3.9 },
+        { symbol: '2891', name: '中信金', weight: 3.8 }
+      ],
+      '00878': [
+        { symbol: '2882', name: '國泰金', weight: 9.2 }, { symbol: '2881', name: '富邦金', weight: 8.6 },
+        { symbol: '2303', name: '聯電', weight: 7.4 }, { symbol: '2357', name: '華碩', weight: 5.8 },
+        { symbol: '3034', name: '聯詠', weight: 5.4 }, { symbol: '2886', name: '兆豐金', weight: 4.9 }
+      ],
+      '00919': [
+        { symbol: '2603', name: '長榮', weight: 10.5 }, { symbol: '2891', name: '中信金', weight: 9.4 },
+        { symbol: '2303', name: '聯電', weight: 8.8 }, { symbol: '2454', name: '聯發科', weight: 8.1 },
+        { symbol: '2882', name: '國泰金', weight: 6.2 }, { symbol: '2881', name: '富邦金', weight: 5.9 }
+      ],
+      '00929': [
+        { symbol: '2454', name: '聯發科', weight: 8.9 }, { symbol: '2303', name: '聯電', weight: 8.2 },
+        { symbol: '3711', name: '日月光投控', weight: 7.4 }, { symbol: '3034', name: '聯詠', weight: 6.8 }
+      ],
+      '00713': [
+        { symbol: '2412', name: '中華電', weight: 7.8 }, { symbol: '3045', name: '台灣大', weight: 7.1 },
+        { symbol: '4904', name: '遠傳', weight: 6.5 }, { symbol: '1216', name: '統一', weight: 5.9 }
+      ],
+      '00981A': [
+        { symbol: '2330', name: '台積電', weight: 10.2 }, { symbol: '2317', name: '鴻海', weight: 6.8 },
+        { symbol: '2454', name: '聯發科', weight: 6.1 }, { symbol: '2382', name: '廣達', weight: 5.6 }
+      ]
+    };
+    let liveFillStats = {
+      '2330': { symbol: '2330', totalCount: 16, filledCount: 16, fillRate: 100.0, avgFillDays: 2.3, fastestDays: 1, latestExDate: '2026-09-17', latestFilled: true, latestFillDays: 1 },
+      '0050': { symbol: '0050', totalCount: 10, filledCount: 10, fillRate: 100.0, avgFillDays: 6.8, fastestDays: 1, latestExDate: '2026-07-21', latestFilled: true, latestFillDays: 4 },
+      '00878': { symbol: '00878', totalCount: 16, filledCount: 14, fillRate: 87.5, avgFillDays: 9.4, fastestDays: 2, latestExDate: '2026-11-18', latestFilled: true, latestFillDays: 6 },
+      '0056': { symbol: '0056', totalCount: 12, filledCount: 11, fillRate: 91.7, avgFillDays: 14.2, fastestDays: 2, latestExDate: '2026-10-16', latestFilled: true, latestFillDays: 8 },
+      '2881': { symbol: '2881', totalCount: 5, filledCount: 5, fillRate: 100.0, avgFillDays: 8.5, fastestDays: 3, latestExDate: '2026-07-08', latestFilled: true, latestFillDays: 5 }
+    };
+    let liveDivEvents = [];
     let selectedDivYear = String(new Date().getFullYear());
     let isFetchingBatchHistory = false;
     let isSyncingDividends = false;
@@ -1832,7 +2000,7 @@
             <td class="py-3 pr-3">
               <button type="button" data-wl-chart="${w.symbol}" class="wl-chart-btn text-left">
                 <div class="font-bold text-slate-900 dark:text-white hover:text-teal-600">${w.symbol}</div>
-                <div class="text-xs text-slate-500">${w.name || TW_STOCK_NAMES[w.symbol] || ''}</div>
+                <div class="text-xs text-slate-500">${w.name || TW_STOCK_NAMES[w.symbol] || ''} ${renderEtfPremiumBadge(w.symbol)}</div>
               </button>
             </td>
             <td class="py-3 px-2 text-right font-semibold">${curP > 0 ? curP : '--'}</td>
@@ -1964,6 +2132,310 @@
       } catch (_) {
         if (!silent) showToast('目前為離線或非 Vercel 環境，顯示市場示範報價');
       }
+    }
+
+    function renderEtfPremiumBadge(sym) {
+      const info = liveEtfNavMap[sym];
+      if (!info || info.premiumPct === null || info.premiumPct === undefined) return '';
+      const thresh = Math.max(0.1, Number(document.getElementById('etf-premium-threshold')?.value || state.etfPremiumThreshold || 1.0));
+      const p = Number(info.premiumPct);
+      if (p >= thresh) {
+        return `<span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 text-[10px] font-bold">⚠️ 溢價 +${p.toFixed(2)}%</span>`;
+      }
+      if (p > 0) {
+        return `<span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 text-[10px] font-medium">溢價 +${p.toFixed(2)}%</span>`;
+      }
+      return `<span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 text-[10px] font-medium">折價 ${p.toFixed(2)}%</span>`;
+    }
+
+    function computeProjectedDividends(data) {
+      const holdings = data.activeHoldings || [];
+      const now = new Date();
+      const cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      const cutoffIso = toLocalIso(cutoff);
+
+      const perStock = [];
+      const monthBuckets = {};
+      for (let i = 1; i <= 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthBuckets[ym] = 0;
+      }
+
+      let totalProjectedAnnual = 0;
+      let totalHoldCost = 0;
+      let maxSinglePayoutOver20k = 0;
+
+      holdings.forEach(h => {
+        totalHoldCost += h.totalCost || 0;
+        let evs = (liveDivEvents || []).filter(e => e.symbol === h.symbol && e.exDate >= cutoffIso);
+        if (evs.length === 0) {
+          evs = state.transactions
+            .filter(t => t.symbol === h.symbol && t.type === '股利' && t.date >= cutoffIso && t.price > 0)
+            .map(t => ({ symbol: h.symbol, exDate: t.date, cashPerShare: t.price }));
+        }
+        const annualCashPerShare = evs.reduce((s, e) => s + Number(e.cashPerShare || 0), 0);
+        const estAnnualDiv = Math.round(h.shares * annualCashPerShare);
+        totalProjectedAnnual += estAnnualDiv;
+
+        evs.forEach(e => {
+          const singleAmt = h.shares * Number(e.cashPerShare || 0);
+          if (singleAmt >= 20000) maxSinglePayoutOver20k += singleAmt;
+          const m = Number(e.exDate.slice(5, 7));
+          for (const ym of Object.keys(monthBuckets)) {
+            if (Number(ym.slice(5, 7)) === m) {
+              monthBuckets[ym] += singleAmt;
+            }
+          }
+        });
+
+        const yoc = h.avgCost > 0 ? (annualCashPerShare / h.avgCost) * 100 : 0;
+        const curYield = h.curPrice > 0 ? (annualCashPerShare / h.curPrice) * 100 : 0;
+        perStock.push({
+          symbol: h.symbol,
+          name: h.name,
+          annualCashPerShare,
+          estAnnualDiv,
+          yoc,
+          curYield
+        });
+      });
+
+      const portfolioYoc = totalHoldCost > 0 ? (totalProjectedAnnual / totalHoldCost) * 100 : 0;
+      return { perStock, monthBuckets, totalProjectedAnnual, portfolioYoc, maxSinglePayoutOver20k };
+    }
+
+    function renderFutureDividendForecast(data) {
+      const ctxEl = document.getElementById('future-div-chart');
+      const yocTbody = document.getElementById('yoc-tbody');
+      if (!ctxEl || !yocTbody) return;
+
+      const proj = computeProjectedDividends(data);
+      document.getElementById('forecast-annual-div-badge').textContent = `預估年息 ${fmtMoney(proj.totalProjectedAnnual)}`;
+      document.getElementById('forecast-portfolio-yoc-badge').textContent = `組合 YOC ${proj.portfolioYoc.toFixed(2)}%`;
+
+      const labels = Object.keys(proj.monthBuckets);
+      const vals = labels.map(k => Math.round(proj.monthBuckets[k]));
+
+      if (futureDivChart) futureDivChart.destroy();
+      futureDivChart = new Chart(ctxEl.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labels.map(ym => `${ym.slice(2, 4)}/${ym.slice(5, 7)}`),
+          datasets: [{
+            label: '預估現金股利',
+            data: vals,
+            backgroundColor: '#14B8A6',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: item => state.privacyMode ? '預估股利: ****' : `預估股利: NT$ ${Number(item.raw).toLocaleString('zh-TW')}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: { callback: v => state.privacyMode ? '***' : (v >= 10000 ? `${(v / 10000).toFixed(1)}萬` : v) },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      yocTbody.innerHTML = proj.perStock.sort((a, b) => b.estAnnualDiv - a.estAnnualDiv).map(r => `
+        <tr>
+          <td class="py-2 pr-2 font-semibold">${r.symbol} ${r.name}</td>
+          <td class="py-2 px-2 text-right">${r.annualCashPerShare > 0 ? r.annualCashPerShare.toFixed(2) + ' 元' : '--'}</td>
+          <td class="py-2 px-2 text-right font-semibold text-teal-600 dark:text-teal-400">${fmtMoney(r.estAnnualDiv)}</td>
+          <td class="py-2 px-2 text-right">${r.curYield > 0 ? r.curYield.toFixed(2) + '%' : '--'}</td>
+          <td class="py-2 pl-2 text-right font-bold ${r.yoc >= r.curYield && r.yoc > 0 ? 'text-red-600 dark:text-red-400' : ''}">${r.yoc > 0 ? r.yoc.toFixed(2) + '%' : '--'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="py-4 text-center text-slate-400">尚無持倉或近一年配息資料</td></tr>';
+
+      const taxDivInput = document.getElementById('tax-annual-div-input');
+      const taxNhiInput = document.getElementById('tax-nhi-base-input');
+      if (taxDivInput && !taxDivInput.dataset.touched) {
+        taxDivInput.value = Math.round(proj.totalProjectedAnnual || data.totalDividend || 0);
+      }
+      if (taxNhiInput && !taxNhiInput.dataset.touched) {
+        taxNhiInput.value = Math.round(proj.maxSinglePayoutOver20k || 0);
+      }
+      renderDividendTaxPanel();
+    }
+
+    function renderDividendTaxPanel() {
+      const box = document.getElementById('div-tax-result');
+      const divInput = document.getElementById('tax-annual-div-input');
+      const nhiInput = document.getElementById('tax-nhi-base-input');
+      const rateSel = document.getElementById('tax-marginal-rate');
+      if (!box || !divInput || !nhiInput || !rateSel) return;
+
+      const gross = Math.max(0, Number(divInput.value) || 0);
+      const nhiBase = Math.max(0, Number(nhiInput.value) || 0);
+      const rate = Number(rateSel.value) || 0.12;
+
+      const nhiFee = Math.round(nhiBase * 0.0211);
+      const credit = Math.min(80000, Math.round(gross * 0.085));
+      const mergedTax = Math.round(gross * rate) - credit;
+      const separateTax = Math.round(gross * 0.28);
+
+      const bestTax = Math.min(mergedTax, separateTax);
+      const bestPlan = mergedTax <= separateTax ? '合併計稅' : '28% 分開計稅';
+      const taxDiff = Math.abs(mergedTax - separateTax);
+      const netCash = gross - nhiFee - bestTax;
+
+      box.innerHTML = `
+        <div class="rounded-xl p-3.5 border ${mergedTax <= separateTax ? 'border-teal-400 bg-teal-50/60 dark:bg-teal-950/30' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60'} space-y-1">
+          <div class="flex items-center justify-between font-bold text-slate-900 dark:text-white">
+            <span>方案 A：合併計稅 (8.5% 抵減)</span>
+            ${mergedTax <= separateTax ? '<span class="px-1.5 py-0.5 rounded bg-teal-600 text-white text-[10px]">較省稅</span>' : ''}
+          </div>
+          <div class="text-slate-500">應納稅額 (${(rate * 100).toFixed(0)}%)：NT$ ${Math.round(gross * rate).toLocaleString('zh-TW')}</div>
+          <div class="text-slate-500">可抵減稅額 (8.5%)：-NT$ ${credit.toLocaleString('zh-TW')}</div>
+          <div class="font-bold text-sm ${mergedTax < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}">
+            ${mergedTax < 0 ? `可退稅 NT$ ${Math.abs(mergedTax).toLocaleString('zh-TW')}` : `實繳所得稅 NT$ ${mergedTax.toLocaleString('zh-TW')}`}
+          </div>
+        </div>
+        <div class="rounded-xl p-3.5 border ${separateTax < mergedTax ? 'border-teal-400 bg-teal-50/60 dark:bg-teal-950/30' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60'} space-y-1">
+          <div class="flex items-center justify-between font-bold text-slate-900 dark:text-white">
+            <span>方案 B：28% 分開計稅</span>
+            ${separateTax < mergedTax ? '<span class="px-1.5 py-0.5 rounded bg-teal-600 text-white text-[10px]">較省稅</span>' : ''}
+          </div>
+          <div class="text-slate-500">固定稅率：28%（不併入綜所稅率）</div>
+          <div class="text-slate-500">無 8.5% 抵減稅額</div>
+          <div class="font-bold text-sm text-slate-900 dark:text-white">實繳所得稅 NT$ ${separateTax.toLocaleString('zh-TW')}</div>
+        </div>
+        <div class="rounded-xl p-3.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-1">
+          <div class="font-bold text-slate-900 dark:text-white">稅後實拿總結（建議：${bestPlan}）</div>
+          <div class="text-slate-500">二代健保補充保費 (2.11%)：NT$ ${nhiFee.toLocaleString('zh-TW')}</div>
+          <div class="text-teal-600 dark:text-teal-400 font-semibold">兩方案稅差：省下 NT$ ${taxDiff.toLocaleString('zh-TW')}</div>
+          <div class="font-bold text-sm text-red-600 dark:text-red-400">稅後實拿：${fmtMoney(netCash)}</div>
+        </div>
+      `;
+    }
+
+    function renderFillStatsTable(data) {
+      const tbody = document.getElementById('fill-div-tbody');
+      if (!tbody) return;
+      const holdings = data.activeHoldings || [];
+      tbody.innerHTML = holdings.map(h => {
+        const st = liveFillStats[h.symbol];
+        if (!st) {
+          return `
+            <tr>
+              <td class="py-2.5 pr-3 font-semibold">${h.symbol} ${h.name}</td>
+              <td class="py-2.5 px-2 text-right text-slate-400">--</td>
+              <td class="py-2.5 px-2 text-right text-slate-400">--</td>
+              <td class="py-2.5 px-2 text-right text-slate-400">--</td>
+              <td class="py-2.5 px-2 text-right text-slate-400">--</td>
+              <td class="py-2.5 pl-2 text-right text-xs text-slate-400">點「更新填息統計」查詢</td>
+            </tr>
+          `;
+        }
+        const rateCls = st.fillRate >= 80 ? 'text-red-600 dark:text-red-400' : (st.fillRate >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400');
+        const latestBadge = st.latestFilled
+          ? `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300">已填息 (${st.latestFillDays}天)</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">貼息中</span>`;
+        return `
+          <tr>
+            <td class="py-2.5 pr-3 font-semibold">${h.symbol} ${h.name}</td>
+            <td class="py-2.5 px-2 text-right">${st.filledCount} / ${st.totalCount} 次</td>
+            <td class="py-2.5 px-2 text-right font-bold ${rateCls}">${st.fillRate.toFixed(1)}%</td>
+            <td class="py-2.5 px-2 text-right font-semibold">${st.avgFillDays !== null ? st.avgFillDays + ' 天' : '--'}</td>
+            <td class="py-2.5 px-2 text-right">${st.fastestDays !== null ? st.fastestDays + ' 天' : '--'}</td>
+            <td class="py-2.5 pl-2 text-right">${latestBadge} <span class="text-[11px] text-slate-400 ml-1">${st.latestExDate}</span></td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="6" class="py-5 text-center text-slate-400">尚無持倉標的</td></tr>';
+    }
+
+    function renderEtfOverlapPanel(data) {
+      const box = document.getElementById('etf-overlap-container');
+      const badge = document.getElementById('overlap-concentration-badge');
+      if (!box || !badge) return;
+      const totalMv = data.totalMarketValue || 0;
+      if (totalMv <= 0) {
+        badge.textContent = '無持倉資料';
+        box.innerHTML = '<div class="text-xs text-slate-400 py-2">尚無持倉資料可分析</div>';
+        return;
+      }
+
+      const agg = {};
+      const addExposure = (sym, name, value, sourceLabel) => {
+        if (!agg[sym]) agg[sym] = { symbol: sym, name: name || TW_STOCK_NAMES[sym] || sym, value: 0, sources: [] };
+        agg[sym].value += value;
+        agg[sym].sources.push({ label: sourceLabel, pct: (value / totalMv) * 100 });
+      };
+
+      (data.activeHoldings || []).forEach(h => {
+        const constituents = liveEtfHoldingsMap[h.symbol];
+        if (Array.isArray(constituents) && constituents.length > 0) {
+          constituents.forEach(c => {
+            const expVal = h.marketValue * (c.weight / 100);
+            addExposure(c.symbol, c.name, expVal, `${h.symbol}`);
+          });
+        } else {
+          addExposure(h.symbol, h.name, h.marketValue, '直接持股');
+        }
+      });
+
+      const list = Object.values(agg).sort((a, b) => b.value - a.value).slice(0, 10);
+      const top1Pct = list[0] ? (list[0].value / totalMv) * 100 : 0;
+      if (top1Pct >= 25) {
+        badge.textContent = `⚠️ ${list[0].name} 穿透佔比達 ${top1Pct.toFixed(1)}%`;
+        badge.className = 'text-xs px-2.5 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold';
+      } else {
+        badge.textContent = `最大單一股穿透佔比 ${top1Pct.toFixed(1)}%（分散良好）`;
+        badge.className = 'text-xs px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 font-semibold';
+      }
+
+      box.innerHTML = list.map(item => {
+        const pct = (item.value / totalMv) * 100;
+        const barW = Math.min(100, pct * 1.6);
+        const srcText = item.sources
+          .sort((a, b) => b.pct - a.pct)
+          .slice(0, 4)
+          .map(s => `${s.label} ${s.pct.toFixed(1)}%`)
+          .join(' + ');
+        return `
+          <div class="space-y-1">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div><strong>${item.symbol} ${item.name}</strong> <span class="text-slate-400">(${srcText})</span></div>
+              <div class="font-bold tabular-nums">${fmtMoney(item.value)} · <span class="${pct >= 25 ? 'text-red-600 dark:text-red-400' : 'text-teal-600 dark:text-teal-400'}">${pct.toFixed(1)}%</span></div>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full rounded-full ${pct >= 25 ? 'bg-red-500' : 'bg-teal-500'}" style="width: ${barW.toFixed(1)}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchEtfData(silent = true) {
+      if (!window.location.protocol.startsWith('http')) return;
+      const syms = Array.from(new Set([
+        ...state.transactions.map(t => t.symbol.trim()),
+        ...(state.watchlist || []).map(w => w.symbol.trim())
+      ].filter(Boolean)));
+      if (syms.length === 0) return;
+      try {
+        const res = await fetch('/api/etf?symbols=' + encodeURIComponent(syms.join(',')));
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.navMap) Object.assign(liveEtfNavMap, json.navMap);
+        if (json.holdingsMap) Object.assign(liveEtfHoldingsMap, json.holdingsMap);
+        const data = analyzePortfolio();
+        renderHoldingsTab(data);
+        renderWatchlistTab();
+      } catch (_) {}
     }
 
     function renderMonthlyDividendChart() {
@@ -2127,6 +2599,7 @@
       renderMarketCards();
       renderBenchmarkChart(data);
       renderMonthlyDividendChart();
+      renderFutureDividendForecast(data);
       renderTrendAndCalendar(data);
 
       // Annual Report
@@ -3354,7 +3827,7 @@
             <td class="py-3 pr-3">
               <button type="button" data-chart-sym="${h.symbol}" class="open-chart-btn text-left group">
                 <div class="font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">${h.symbol}</div>
-                <div class="text-xs text-slate-500">${h.name}</div>
+                <div class="text-xs text-slate-500">${h.name} ${renderEtfPremiumBadge(h.symbol)}</div>
               </button>
             </td>
             <td class="py-3 px-2 text-right">${h.shares.toLocaleString('zh-TW')}</td>
@@ -3401,6 +3874,8 @@
       `).join('');
 
       renderUpcomingDividends(data);
+      renderFillStatsTable(data);
+      renderEtfOverlapPanel(data);
       renderChipsTable(data);
 
       // Per-Stock P&L Detail Table (Expandable)
@@ -4091,6 +4566,8 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
         const events = Array.isArray(json.events) ? json.events : [];
+        if (events.length > 0) liveDivEvents = events;
+        if (json.fillStats) Object.assign(liveFillStats, json.fillStats);
         let added = 0;
 
         for (const ev of events) {
@@ -4123,8 +4600,9 @@
           saveState();
           renderAll();
           if (!silent) showToast(`已自動補齊 ${added} 筆應領股利紀錄！`);
-        } else if (!silent) {
-          showToast('目前買入日之後的應領股利皆已入帳（無缺漏）');
+        } else {
+          renderAll();
+          if (!silent) showToast('已更新填息統計與股利資料（無缺漏紀錄）');
         }
       } catch (_) {
         if (!silent) showToast('需於 Vercel 線上環境才能自動查詢除息紀錄');
@@ -4657,6 +5135,46 @@
         downloadCsv(['代碼,名稱,類型,日期,股數,價格,備註', '2330,台積電,買入,2026-11-01,500,1010,定期加碼'], 'tw_stock_sample.csv');
       });
 
+      function parseCsvRowSmart(line) {
+        const res = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === ',' && !inQuotes) {
+            res.push(cur.trim());
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        res.push(cur.trim());
+        return res;
+      }
+
+      function normalizeCsvDate(raw) {
+        const s = String(raw || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        let m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/);
+        if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+        m = s.match(/^(\d{2,3})[\/.](\d{1,2})[\/.](\d{1,2})$/);
+        if (m) return `${Number(m[1]) + 1911}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+        m = s.match(/^(\d{3})(\d{2})(\d{2})$/);
+        if (m) return `${Number(m[1]) + 1911}-${m[2]}-${m[3]}`;
+        return toLocalIso(new Date());
+      }
+
+      function normalizeCsvType(raw) {
+        const s = String(raw || '').trim();
+        if (/^(買入|買進|現股買進|融資買進|買|buy)$/i.test(s)) return '買入';
+        if (/^(賣出|賣出成交|現股賣出|融資賣出|賣|sell)$/i.test(s)) return '賣出';
+        if (/^(股利|現金股利|配息|除息|div|dividend)$/i.test(s)) return '股利';
+        if (/^(配股|股票股利|無償配股|stock_div)$/i.test(s)) return '配股';
+        return '';
+      }
+
       document.getElementById('csv-import-input').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -4664,27 +5182,47 @@
         reader.onload = ev => {
           const text = ev.target.result.replace(/^\uFEFF/, '');
           const lines = text.split(/\r?\n/).filter(Boolean);
+          if (lines.length < 2) return showToast('CSV 內容為空');
+          const headers = parseCsvRowSmart(lines[0]).map(h => h.replace(/"/g, '').trim());
+          const idxSym = headers.findIndex(h => /代碼|代號|股號|證券代號|商品代碼|symbol|code/i.test(h));
+          const idxName = headers.findIndex(h => /名稱|股名|證券名稱|商品名稱|name/i.test(h));
+          const idxType = headers.findIndex(h => /類型|買賣別|交易類別|異動別|方向|type|side/i.test(h));
+          const idxDate = headers.findIndex(h => /日期|成交日期|異動日期|交割日期|date/i.test(h));
+          const idxShares = headers.findIndex(h => /股數|成交股數|異動股數|數量|shares|qty/i.test(h));
+          const idxPrice = headers.findIndex(h => /價格|成交價|成交單價|單價|price/i.test(h));
+          const idxAcct = headers.findIndex(h => /帳戶|券商|帳號|account|broker/i.test(h));
+          const idxNote = headers.findIndex(h => /備註|說明|note/i.test(h));
+          const fallbackAcct = (document.getElementById('csv-import-account')?.value || '').trim() || '預設帳戶';
+
           let count = 0;
           lines.slice(1).forEach((line, idx) => {
-            const cols = line.split(',');
-            if (cols.length >= 6) {
-              const [symbol, name, type, date, shares, price, note] = cols.map(c => c.trim());
-              if (symbol && ['買入', '賣出', '股利', '配股'].includes(type)) {
-                const csvTx = {
-                  id: `csv_${Date.now()}_${idx}`,
-                  symbol,
-                  name: name || TW_STOCK_NAMES[symbol] || symbol,
-                  type,
-                  date,
-                  shares: Number(shares) || 0,
-                  price: Number(price) || 0,
-                  note: note || ''
-                };
-                state.transactions.push(csvTx);
-                pushTransactionToCloud(csvTx);
-                if (!state.prices[symbol] && Number(price) > 0) state.prices[symbol] = Number(price);
-                count++;
-              }
+            const cols = parseCsvRowSmart(line);
+            const symbol = (cols[idxSym >= 0 ? idxSym : 0] || '').replace(/[^0-9A-Za-z]/g, '');
+            const name = idxName >= 0 ? cols[idxName] : (idxSym < 0 ? cols[1] : '');
+            const rawType = cols[idxType >= 0 ? idxType : 2];
+            const type = normalizeCsvType(rawType);
+            const date = normalizeCsvDate(cols[idxDate >= 0 ? idxDate : 3]);
+            const shares = Number((cols[idxShares >= 0 ? idxShares : 4] || '').replace(/,/g, '')) || 0;
+            const price = Number((cols[idxPrice >= 0 ? idxPrice : 5] || '').replace(/,/g, '')) || 0;
+            const account = (idxAcct >= 0 && cols[idxAcct]) ? cols[idxAcct] : fallbackAcct;
+            const note = idxNote >= 0 ? cols[idxNote] : (cols[6] || '');
+
+            if (symbol && type && shares > 0) {
+              const csvTx = {
+                id: `csv_${Date.now()}_${idx}`,
+                symbol,
+                name: name || TW_STOCK_NAMES[symbol] || symbol,
+                type,
+                date,
+                shares,
+                price,
+                account,
+                note: note || ''
+              };
+              state.transactions.push(csvTx);
+              pushTransactionToCloud(csvTx);
+              if (!state.prices[symbol] && price > 0) state.prices[symbol] = price;
+              count++;
             }
           });
           saveState();
@@ -4870,6 +5408,38 @@
         renderAll();
         showToast('已恢復預設台股示範資料');
       });
+
+      ['tax-annual-div-input', 'tax-nhi-base-input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => {
+            el.dataset.touched = '1';
+            renderDividendTaxPanel();
+          });
+        }
+      });
+      const rateEl = document.getElementById('tax-marginal-rate');
+      if (rateEl) rateEl.addEventListener('change', renderDividendTaxPanel);
+
+      const premEl = document.getElementById('etf-premium-threshold');
+      if (premEl) {
+        premEl.value = state.etfPremiumThreshold || 1.0;
+        premEl.addEventListener('change', () => {
+          state.etfPremiumThreshold = Math.max(0.1, Number(premEl.value) || 1.0);
+          saveState();
+          renderHoldingsTab(analyzePortfolio());
+          renderWatchlistTab();
+        });
+      }
+
+      const fillBtn = document.getElementById('refresh-fill-stats-btn');
+      if (fillBtn) {
+        fillBtn.addEventListener('click', () => autoSyncDividends(false));
+      }
+
+      if (window.location.protocol.startsWith('http')) {
+        fetchEtfData(true);
+      }
 
       renderAll();
     });
